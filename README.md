@@ -23,5 +23,7 @@ python manage.py migrate
 Admin page (for viewing database) route: 
 ```
 localhost:8000/admin
+username: admin
+password: 1234
 ```
 
