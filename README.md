@@ -20,5 +20,8 @@ python manage.py makemigrations
 python manage.py migrate
 ```
 
-Admin page route: localhost:8000/admin
+Admin page (for viewing database) route: 
+```
+localhost:8000/admin
+```
 
