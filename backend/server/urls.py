@@ -25,4 +25,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('account/', include('account.urls')),
     path('assignments/', include(('assignmentapp.urls', 'assignmentapp'), namespace='assignmentapp')),
+    path('chat/', include('chatapp.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
