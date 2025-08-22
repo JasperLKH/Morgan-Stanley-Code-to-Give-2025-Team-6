@@ -7,13 +7,13 @@ class UserAdmin(DjangoUserAdmin):
     # Only show username, password and role fields
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        ('Personal info', {'fields': ('role', 'parent_name', 'children_name', 'school', 'point', 'streak')}),
+        ('Personal info', {'fields': ('role', 'parent_name', 'children_name', 'school', 'points', 'streaks')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser')}),
     )
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('username', 'password1', 'password2', 'role', 'parent_name', 'children_name', 'school', 'point', 'streak'),
+            'fields': ('username', 'password1', 'password2', 'role', 'parent_name', 'children_name', 'school', 'points', 'streaks'),
         }),
     )
     
