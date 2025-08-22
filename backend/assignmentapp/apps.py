@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class ReachappConfig(AppConfig):
+class AssignmentappConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'reachapp'
+    name = 'assignmentapp'
