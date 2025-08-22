@@ -13,6 +13,8 @@ urlpatterns = [
     
     # Assignment submissions
     path('<int:assignment_pk>/submissions/', views.assignment_submissions, name='assignment-submissions'),
+    path('<int:assignment_pk>/submit/', views.submit_assignment, name='submit-assignment'),
     path('submissions/<int:submission_pk>/grade/', views.grade_submission, name='grade-submission'),
     path('submissions/<int:submission_pk>/feedback/', views.update_submission_feedback, name='update-submission-feedback'),
+    path('submissions/<int:submission_pk>/edit/', views.edit_submission, name='edit-submission'),
 ]

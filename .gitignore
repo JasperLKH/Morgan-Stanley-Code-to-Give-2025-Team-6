@@ -5,4 +5,11 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+
 db.sqlite3
+postman

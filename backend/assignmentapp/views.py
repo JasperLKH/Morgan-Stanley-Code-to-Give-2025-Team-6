@@ -7,11 +7,11 @@ from django.utils import timezone
 from django.core.paginator import Paginator
 from account.models import User
 
-from .models import Assignment, AssignmentSubmission
+from .models import Assignment, AssignmentSubmission, SubmissionAttachment
 from .serializers import AssignmentSerializer, AssignmentSubmissionSerializer
 
 
-def is_staff_user(request):
+def get_user(request):
     """Check if user role is staff"""
     # Get user_id from request (could be from headers, query params, or body)
     user_id = request.headers.get('User-ID') or request.GET.get('user_id') or request.data.get('user_id')
@@ -21,10 +21,9 @@ def is_staff_user(request):
     
     try:
         user = User.objects.get(id=user_id)
-        return user.role == 'staff', user
+        return user
     except User.DoesNotExist:
         return False, None
-
 
 @api_view(['GET', 'POST'])
 @parser_classes([MultiPartParser, FormParser])
@@ -33,10 +32,8 @@ def assignment_list_create(request):
     GET: List all assignments (staff only)
     POST: Create a new assignment (staff only)
     """
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+    user = get_user(request)
+ 
     if request.method == 'GET':
         assignments = Assignment.objects.all().order_by('-release_date')
         serializer = AssignmentSerializer(assignments, many=True)
@@ -58,10 +55,7 @@ def assignment_detail(request, pk):
     PUT/PATCH: Update an assignment (staff only)
     DELETE: Delete an assignment (staff only)
     """
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     assignment = get_object_or_404(Assignment, pk=pk)
     
     if request.method == 'GET':
@@ -84,10 +78,7 @@ def assignment_detail(request, pk):
 @api_view(['POST'])
 def assignment_hide(request, pk):
     """Hide an assignment (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     assignment = get_object_or_404(Assignment, pk=pk)
     assignment.hidden = True
     assignment.save(update_fields=['hidden'])
@@ -97,10 +88,7 @@ def assignment_hide(request, pk):
 @api_view(['POST'])
 def assignment_unhide(request, pk):
     """Unhide an assignment (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     assignment = get_object_or_404(Assignment, pk=pk)
     assignment.hidden = False
     assignment.save(update_fields=['hidden'])
@@ -110,10 +98,7 @@ def assignment_unhide(request, pk):
 @api_view(['POST'])
 def assignment_update_deadline(request, pk):
     """Update assignment deadline (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     assignment = get_object_or_404(Assignment, pk=pk)
     due_date = request.data.get('due_date')
     
@@ -132,10 +117,7 @@ def assignment_update_deadline(request, pk):
 @api_view(['GET'])
 def assignment_submissions(request, assignment_pk):
     """List submissions for an assignment (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     assignment = get_object_or_404(Assignment, pk=assignment_pk)
     submissions = AssignmentSubmission.objects.filter(assignment=assignment).order_by('-created_at')
     serializer = AssignmentSubmissionSerializer(submissions, many=True)
@@ -145,10 +127,7 @@ def assignment_submissions(request, assignment_pk):
 @api_view(['POST'])
 def grade_submission(request, submission_pk):
     """Grade a submission (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     submission = get_object_or_404(AssignmentSubmission, pk=submission_pk)
     score = request.data.get('score')
     feedback = request.data.get('feedback')
@@ -161,10 +140,7 @@ def grade_submission(request, submission_pk):
 @api_view(['PATCH'])
 def update_submission_feedback(request, submission_pk):
     """Update feedback for a submission (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     submission = get_object_or_404(AssignmentSubmission, pk=submission_pk)
     feedback = request.data.get('feedback')
     
@@ -184,5 +160,169 @@ def update_submission_feedback(request, submission_pk):
         'status': 'feedback_updated',
         'submission_id': submission.id,
         'message': 'Feedback updated successfully',
+        'data': serializer.data
+    })
+
+
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def submit_assignment(request, assignment_pk):
+    """Submit an assignment (parent only)"""
+    user = get_user(request)
+
+    assignment = get_object_or_404(Assignment, pk=assignment_pk)
+    
+    # Check if assignment is not hidden
+    if assignment.hidden:
+        return Response({'detail': 'Assignment is not available'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Check if assignment is still accepting submissions (not past due date)
+    today = timezone.now().date()
+    if today > assignment.due_date:
+        return Response({'detail': 'Assignment deadline has passed'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Check if user already has a submission for this assignment
+    existing_submission = AssignmentSubmission.objects.filter(
+        user=user, 
+        assignment=assignment
+    ).first()
+    
+    if existing_submission:
+        # Update existing submission
+        submission = existing_submission
+        submission.mark_submitted()  # This will update the status and user's streak
+    else:
+        # Create new submission
+        submission = AssignmentSubmission.objects.create(
+            user=user,
+            assignment=assignment,
+            status=AssignmentSubmission.STATUS_SUBMITTED
+        )
+        submission.mark_submitted()  # This will update user's streak
+    
+    # Handle single file attachment from request.FILES
+    if request.FILES:
+        # Get the first (and expected only) file
+        uploaded_file = next(iter(request.FILES.values()))
+        
+        # Clear existing attachments for this submission (in case of resubmission)
+        SubmissionAttachment.objects.filter(submission=submission).delete()
+        
+        # Determine file type based on content type
+        content_type = uploaded_file.content_type or ''
+        
+        if content_type.startswith('image/'):
+            kind = SubmissionAttachment.IMAGE
+        elif content_type.startswith('video/'):
+            kind = SubmissionAttachment.VIDEO
+        elif content_type.startswith('audio/'):
+            kind = SubmissionAttachment.AUDIO
+        else:
+            kind = SubmissionAttachment.FILE
+        
+        # Create SubmissionAttachment object
+        attachment = SubmissionAttachment.objects.create(
+            submission=submission,
+            kind=kind,
+            blob=uploaded_file
+        )
+        
+        # Set metadata for images
+        if kind == SubmissionAttachment.IMAGE:
+            try:
+                from PIL import Image
+                image = Image.open(uploaded_file)
+                attachment.width = image.width
+                attachment.height = image.height
+                attachment.save(update_fields=['width', 'height'])
+            except ImportError:
+                # PIL not installed, skip metadata
+                pass
+            except Exception:
+                # Error processing image, skip metadata
+                pass
+    
+    serializer = AssignmentSubmissionSerializer(submission)
+    return Response({
+        'status': 'submitted',
+        'submission_id': submission.id,
+        'message': 'Assignment submitted successfully',
+        'data': serializer.data
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH'])
+@parser_classes([MultiPartParser, FormParser])
+def edit_submission(request, submission_pk):
+    """Edit a submission (parent only - can only edit their own submissions)"""
+    user = get_user(request)
+
+    submission = get_object_or_404(AssignmentSubmission, pk=submission_pk)
+    
+    # Check if the submission belongs to the requesting user
+    if submission.user != user:
+        return Response({'detail': 'You can only edit your own submissions'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Check if assignment is still accepting submissions (not past due date)
+    today = timezone.now().date()
+    if today > submission.assignment.due_date:
+        return Response({'detail': 'Assignment deadline has passed'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Check if assignment is not hidden
+    if submission.assignment.hidden:
+        return Response({'detail': 'Assignment is not available'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Check if submission hasn't been graded yet
+    if submission.status == AssignmentSubmission.STATUS_GRADED:
+        return Response({'detail': 'Cannot edit graded submissions'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Handle file replacement if new file is provided
+    if request.FILES:
+        # Get the new file
+        uploaded_file = next(iter(request.FILES.values()))
+        
+        # Clear existing attachments
+        SubmissionAttachment.objects.filter(submission=submission).delete()
+        
+        # Determine file type based on content type
+        content_type = uploaded_file.content_type or ''
+        
+        if content_type.startswith('image/'):
+            kind = SubmissionAttachment.IMAGE
+        elif content_type.startswith('video/'):
+            kind = SubmissionAttachment.VIDEO
+        elif content_type.startswith('audio/'):
+            kind = SubmissionAttachment.AUDIO
+        else:
+            kind = SubmissionAttachment.FILE
+        
+        # Create new SubmissionAttachment object
+        attachment = SubmissionAttachment.objects.create(
+            submission=submission,
+            kind=kind,
+            blob=uploaded_file
+        )
+        
+        # Set metadata for images
+        if kind == SubmissionAttachment.IMAGE:
+            try:
+                from PIL import Image
+                image = Image.open(uploaded_file)
+                attachment.width = image.width
+                attachment.height = image.height
+                attachment.save(update_fields=['width', 'height'])
+            except ImportError:
+                pass
+            except Exception:
+                pass
+    
+    # Update submission timestamp
+    submission.save(update_fields=['updated_at'])
+    
+    serializer = AssignmentSubmissionSerializer(submission)
+    return Response({
+        'status': 'updated',
+        'submission_id': submission.id,
+        'message': 'Submission updated successfully',
         'data': serializer.data
     })

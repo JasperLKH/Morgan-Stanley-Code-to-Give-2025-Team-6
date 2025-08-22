@@ -4,19 +4,7 @@ from rest_framework import status
 from .serializers import UserSerializer, LoginSerializer
 from .models import User
 
-def is_staff_user(request):
-    """Check if user role is staff"""
-    # Get user_id from request (could be from headers, query params, or body)
-    user_id = request.headers.get('User-ID') or request.GET.get('user_id') or request.data.get('user_id')
 
-    if not user_id:
-        return False, None
-
-    try:
-        user = User.objects.get(id=user_id)
-        return user.role == 'staff', user
-    except User.DoesNotExist:
-        return False, None
 
 @api_view(['POST'])
 def login(request):
@@ -72,12 +60,7 @@ def signup(request):
 def get_all_users(request):
     """
     Allow staff users to get all users 
-    Headers: User-ID: <staff_user_id>
     """
-    is_staff, staff_user = is_staff_user(request)
-    if not is_staff:
-         return Response({'error': 'Access denied. Only staff can access this endpoint.'}, 
-                       status=status.HTTP_403_FORBIDDEN)
     
     # Get all users with roles: staff, teacher, parent
     allowed_roles = ['staff', 'teacher', 'parent']
@@ -107,14 +90,8 @@ def get_all_users(request):
 def get_user_by_id(request):
     """
     Allow staff users to get a single user by id.
-    Headers: User-ID: <staff_user_id>
     Query params: id=<user_id_to_get>
     """
-    # role check (we're not using token auth)
-    is_staff, staff_user = is_staff_user(request)
-    if not is_staff:
-         return Response({'error': 'Access denied. Only staff can access this endpoint.'}, 
-                       status=status.HTTP_403_FORBIDDEN)
     
     user_id = request.GET.get('id')
     if not user_id:
@@ -145,13 +122,8 @@ def get_user_by_id(request):
 def get_user_by_school(request):
     """
     Allow staff users to get users by school.
-    Headers: User-ID: <staff_user_id>
     Query params: school=<school_name>
     """
-    is_staff, staff_user = is_staff_user(request)
-    if not is_staff:
-         return Response({'error': 'Access denied. Only staff can access this endpoint.'}, 
-                       status=status.HTTP_403_FORBIDDEN)
 
     school = request.GET.get('school')
     if not school:
@@ -180,20 +152,15 @@ def get_user_by_school(request):
         'total_count': len(users_data)
     }, status=status.HTTP_200_OK)
 
+
 @api_view(['POST'])
 def activate_user(request):
     """
     Allow staff users to activate a user account.
     Usage: POST /.../activate_user/ 
-    Headers: User-ID: <staff_user_id>
     JSON body: {"user_id": <user_id_to_activate>}
     """
-    # Role check using existing helper function
-    is_staff, staff_user = is_staff_user(request)
-    if not is_staff:
-        return Response({'error': 'Access denied. Only staff can access this endpoint.'},
-                        status=status.HTTP_403_FORBIDDEN)
-
+    
     user_id = request.data.get('user_id')
     if not user_id:
         return Response({'error': 'Missing field: user_id'}, status=status.HTTP_400_BAD_REQUEST)
@@ -223,11 +190,6 @@ def deactivate_user(request):
     Headers: User-ID: <staff_user_id>
     JSON body: {"user_id": <user_id_to_deactivate>}
     """
-    # Role check using existing helper function
-    is_staff, staff_user = is_staff_user(request)
-    if not is_staff:
-        return Response({'error': 'Access denied. Only staff can access this endpoint.'},
-                        status=status.HTTP_403_FORBIDDEN)
 
     user_id = request.data.get('user_id')
     if not user_id:
@@ -237,11 +199,6 @@ def deactivate_user(request):
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
         return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-    # Prevent staff from deactivating themselves
-    if user.id == staff_user.id:
-        return Response({'error': 'Cannot deactivate your own account.'},
-                        status=status.HTTP_400_BAD_REQUEST)
 
     # Prevent staff from deactivating other staff accounts
     if user.role == 'staff':
