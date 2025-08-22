@@ -18,7 +18,7 @@ class UserAdmin(DjangoUserAdmin):
     )
     
     # Show only username and role in the list view
-    list_display = ('id','username', 'role', 'is_active')
+    list_display = ('id', 'username', 'role', 'is_active')
     list_filter = ('role', 'is_active')
     search_fields = ('username',)
     ordering = ('username',)
