@@ -13,7 +13,9 @@ class User(AbstractUser):
     parent_name = models.CharField(max_length=100, blank=True, null=True)
     children_name = models.CharField(max_length=100, blank=True, null=True)
     school = models.CharField(max_length=200, blank=True, null=True)
-    
+    point = models.IntegerField(default=0, blank=True, null=True)
+    streak = models.IntegerField(default=0, blank=True, null=True)
+
     # Hide unnecessary fields by setting them to null/blank
     first_name = None
     last_name = None

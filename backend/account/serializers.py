@@ -7,7 +7,7 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'role', 'parent_name', 'children_name', 'password', 'school']
+        fields = ['id', 'username', 'role', 'parent_name', 'children_name', 'password', 'school', 'point', 'streak']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -35,7 +35,6 @@ class LoginSerializer(serializers.Serializer):
                 if not user.is_active:
                     raise serializers.ValidationError('User account is disabled.')
                 
-                # Check role if specified
                 if role and user.role != role:
                     raise serializers.ValidationError('Invalid role for this user.')
                 
