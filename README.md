@@ -21,7 +21,7 @@ pip install -r requirements.txt
 python manage.py runserver
 ```
 
-Make Migratons & Migrate
+Make Migratons & Migrate (Please migrate each time after pull)
 ```
 python manage.py makemigrations
 python manage.py migrate
