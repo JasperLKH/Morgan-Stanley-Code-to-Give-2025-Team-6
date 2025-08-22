@@ -11,7 +11,7 @@ from .models import Assignment, AssignmentSubmission, SubmissionAttachment
 from .serializers import AssignmentSerializer, AssignmentSubmissionSerializer
 
 
-def is_staff_user(request):
+def get_user(request):
     """Check if user role is staff"""
     # Get user_id from request (could be from headers, query params, or body)
     user_id = request.headers.get('User-ID') or request.GET.get('user_id') or request.data.get('user_id')
@@ -21,25 +21,9 @@ def is_staff_user(request):
     
     try:
         user = User.objects.get(id=user_id)
-        return user.role == 'staff', user
+        return user
     except User.DoesNotExist:
         return False, None
-
-
-def is_parent_user(request):
-    """Check if user role is parent"""
-    # Get user_id from request (could be from headers, query params, or body)
-    user_id = request.headers.get('User-ID') or request.GET.get('user_id') or request.data.get('user_id')
-    
-    if not user_id:
-        return False, None
-    
-    try:
-        user = User.objects.get(id=user_id)
-        return user.role == 'parent', user
-    except User.DoesNotExist:
-        return False, None
-
 
 @api_view(['GET', 'POST'])
 @parser_classes([MultiPartParser, FormParser])
@@ -48,10 +32,8 @@ def assignment_list_create(request):
     GET: List all assignments (staff only)
     POST: Create a new assignment (staff only)
     """
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+    user = get_user(request)
+ 
     if request.method == 'GET':
         assignments = Assignment.objects.all().order_by('-release_date')
         serializer = AssignmentSerializer(assignments, many=True)
@@ -73,10 +55,7 @@ def assignment_detail(request, pk):
     PUT/PATCH: Update an assignment (staff only)
     DELETE: Delete an assignment (staff only)
     """
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     assignment = get_object_or_404(Assignment, pk=pk)
     
     if request.method == 'GET':
@@ -99,10 +78,7 @@ def assignment_detail(request, pk):
 @api_view(['POST'])
 def assignment_hide(request, pk):
     """Hide an assignment (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     assignment = get_object_or_404(Assignment, pk=pk)
     assignment.hidden = True
     assignment.save(update_fields=['hidden'])
@@ -112,10 +88,7 @@ def assignment_hide(request, pk):
 @api_view(['POST'])
 def assignment_unhide(request, pk):
     """Unhide an assignment (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     assignment = get_object_or_404(Assignment, pk=pk)
     assignment.hidden = False
     assignment.save(update_fields=['hidden'])
@@ -125,10 +98,7 @@ def assignment_unhide(request, pk):
 @api_view(['POST'])
 def assignment_update_deadline(request, pk):
     """Update assignment deadline (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     assignment = get_object_or_404(Assignment, pk=pk)
     due_date = request.data.get('due_date')
     
@@ -147,10 +117,7 @@ def assignment_update_deadline(request, pk):
 @api_view(['GET'])
 def assignment_submissions(request, assignment_pk):
     """List submissions for an assignment (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     assignment = get_object_or_404(Assignment, pk=assignment_pk)
     submissions = AssignmentSubmission.objects.filter(assignment=assignment).order_by('-created_at')
     serializer = AssignmentSubmissionSerializer(submissions, many=True)
@@ -160,10 +127,7 @@ def assignment_submissions(request, assignment_pk):
 @api_view(['POST'])
 def grade_submission(request, submission_pk):
     """Grade a submission (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     submission = get_object_or_404(AssignmentSubmission, pk=submission_pk)
     score = request.data.get('score')
     feedback = request.data.get('feedback')
@@ -176,10 +140,7 @@ def grade_submission(request, submission_pk):
 @api_view(['PATCH'])
 def update_submission_feedback(request, submission_pk):
     """Update feedback for a submission (staff only)"""
-    is_staff, user = is_staff_user(request)
-    if not is_staff:
-        return Response({'detail': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     submission = get_object_or_404(AssignmentSubmission, pk=submission_pk)
     feedback = request.data.get('feedback')
     
@@ -207,10 +168,8 @@ def update_submission_feedback(request, submission_pk):
 @parser_classes([MultiPartParser, FormParser])
 def submit_assignment(request, assignment_pk):
     """Submit an assignment (parent only)"""
-    is_parent, user = is_parent_user(request)
-    if not is_parent:
-        return Response({'detail': 'Parent access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+    user = get_user(request)
+
     assignment = get_object_or_404(Assignment, pk=assignment_pk)
     
     # Check if assignment is not hidden
@@ -296,10 +255,8 @@ def submit_assignment(request, assignment_pk):
 @parser_classes([MultiPartParser, FormParser])
 def edit_submission(request, submission_pk):
     """Edit a submission (parent only - can only edit their own submissions)"""
-    is_parent, user = is_parent_user(request)
-    if not is_parent:
-        return Response({'detail': 'Parent access required'}, status=status.HTTP_403_FORBIDDEN)
-    
+    user = get_user(request)
+
     submission = get_object_or_404(AssignmentSubmission, pk=submission_pk)
     
     # Check if the submission belongs to the requesting user
