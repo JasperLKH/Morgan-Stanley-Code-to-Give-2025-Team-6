@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback } from './ui/avatar';
@@ -92,85 +92,107 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
     }
   ]);
 
-  const students: Student[] = [
-    {
-      id: '1',
-      name: 'Emma Chen',
-      parentName: 'Sarah Chen',
-      averageScore: 88,
-      completedAssignments: 12,
-      totalAssignments: 15,
-      recentFeedback: 'Excellent progress in reading comprehension. Keep up the great work!',
-      status: 'excellent',
-    },
-    {
-      id: '2',
-      name: 'Alex Wong',
-      parentName: 'Lisa Wong',
-      averageScore: 75,
-      completedAssignments: 8,
-      totalAssignments: 12,
-      recentFeedback: 'Good effort in math activities. Could benefit from more practice with addition.',
-      status: 'good',
-    },
-    {
-      id: '3',
-      name: 'Sophie Lee',
-      parentName: 'David Lee',
-      averageScore: 65,
-      completedAssignments: 5,
-      totalAssignments: 8,
-      recentFeedback: 'Shows creativity in art activities but needs encouragement with reading tasks.',
-      status: 'needs_attention',
-    },
-  ];
+  // sample data
+  // const students: Student[] = [
+  //   {
+  //     id: '1',
+  //     name: 'Emma Chen',
+  //     parentName: 'Sarah Chen',
+  //     averageScore: 88,
+  //     completedAssignments: 12,
+  //     totalAssignments: 15,
+  //     recentFeedback: 'Excellent progress in reading comprehension. Keep up the great work!',
+  //     status: 'excellent',
+  //   },
+  //   {
+  //     id: '2',
+  //     name: 'Alex Wong',
+  //     parentName: 'Lisa Wong',
+  //     averageScore: 75,
+  //     completedAssignments: 8,
+  //     totalAssignments: 12,
+  //     recentFeedback: 'Good effort in math activities. Could benefit from more practice with addition.',
+  //     status: 'good',
+  //   },
+  //   {
+  //     id: '3',
+  //     name: 'Sophie Lee',
+  //     parentName: 'David Lee',
+  //     averageScore: 65,
+  //     completedAssignments: 5,
+  //     totalAssignments: 8,
+  //     recentFeedback: 'Shows creativity in art activities but needs encouragement with reading tasks.',
+  //     status: 'needs_attention',
+  //   },
+  // ];
 
-  const assignments: Assignment[] = [
-    {
-      id: '1',
-      title: 'Read "The Little Red Hen"',
-      type: 'reading',
-      dueDate: 'Dec 25, 2024',
-      totalSubmissions: 15,
-      pendingReview: 3,
-      completedReviews: 12,
-      averageScore: 82,
-      description: 'Students read the story and discuss with parents'
-    },
-    {
-      id: '2',
-      title: 'Practice Writing Numbers 1-5',
-      type: 'writing',
-      dueDate: 'Dec 26, 2024',
-      totalSubmissions: 12,
-      pendingReview: 5,
-      completedReviews: 7,
-      averageScore: 78,
-      description: 'Number tracing and writing practice'
-    },
-    {
-      id: '3',
-      title: 'Counting with Toys',
-      type: 'math',
-      dueDate: 'Dec 27, 2024',
-      totalSubmissions: 18,
-      pendingReview: 1,
-      completedReviews: 17,
-      averageScore: 85,
-      description: 'Count household items and record results'
-    },
-    {
-      id: '4',
-      title: 'Draw a Family Picture',
-      type: 'art',
-      dueDate: 'Dec 28, 2024',
-      totalSubmissions: 8,
-      pendingReview: 8,
-      completedReviews: 0,
-      averageScore: 0,
-      description: 'Create family artwork and discuss relationships'
-    }
-  ];
+  // students fetched from backend, created by julian
+  const [students, setStudents] = useState<Student[]>([]);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/account/users/')
+      .then((response) => response.json())
+      .then((data) => setStudents(data))
+      .catch((error) => console.error('Error fetching students:', error));
+  }, []);
+
+  // // sample data
+  // const assignments: Assignment[] = [
+  //   {
+  //     id: '1',
+  //     title: 'Read "The Little Red Hen"',
+  //     type: 'reading',
+  //     dueDate: 'Dec 25, 2024',
+  //     totalSubmissions: 15,
+  //     pendingReview: 3,
+  //     completedReviews: 12,
+  //     averageScore: 82,
+  //     description: 'Students read the story and discuss with parents'
+  //   },
+  //   {
+  //     id: '2',
+  //     title: 'Practice Writing Numbers 1-5',
+  //     type: 'writing',
+  //     dueDate: 'Dec 26, 2024',
+  //     totalSubmissions: 12,
+  //     pendingReview: 5,
+  //     completedReviews: 7,
+  //     averageScore: 78,
+  //     description: 'Number tracing and writing practice'
+  //   },
+  //   {
+  //     id: '3',
+  //     title: 'Counting with Toys',
+  //     type: 'math',
+  //     dueDate: 'Dec 27, 2024',
+  //     totalSubmissions: 18,
+  //     pendingReview: 1,
+  //     completedReviews: 17,
+  //     averageScore: 85,
+  //     description: 'Count household items and record results'
+  //   },
+  //   {
+  //     id: '4',
+  //     title: 'Draw a Family Picture',
+  //     type: 'art',
+  //     dueDate: 'Dec 28, 2024',
+  //     totalSubmissions: 8,
+  //     pendingReview: 8,
+  //     completedReviews: 0,
+  //     averageScore: 0,
+  //     description: 'Create family artwork and discuss relationships'
+  //   }
+  // ];
+
+  // assignments fetched from backend, created by julian
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/assignments/')
+      .then((response) => response.json())
+      .then((data) => setAssignments(data))
+      .catch((error) => console.error('Error fetching assignments:', error));
+  }, []);
 
   const sendMessage = () => {
     if (chatMessage.trim()) {
@@ -233,9 +255,9 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
 
   const classStats = {
     totalStudents: students.length,
-    averageCompletion: Math.round(students.reduce((acc, student) => 
-      acc + (student.completedAssignments / student.totalAssignments), 0) / students.length * 100),
-    averageScore: Math.round(students.reduce((acc, student) => acc + student.averageScore, 0) / students.length),
+    averageCompletion: students.length > 0 ? Math.round(students.reduce((acc, student) => 
+      acc + (student.completedAssignments / student.totalAssignments), 0) / students.length * 100) : 0,
+    averageScore: students.length > 0 ? Math.round(students.reduce((acc, student) => acc + student.averageScore, 0) / students.length) : 0,
   };
 
   return (
