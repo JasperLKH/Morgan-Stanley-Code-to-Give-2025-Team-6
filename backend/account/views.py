@@ -187,7 +187,6 @@ def deactivate_user(request):
     """
     Allow staff users to deactivate a user account.
     Usage: POST /.../deactivate_user/ 
-    Headers: User-ID: <staff_user_id>
     JSON body: {"user_id": <user_id_to_deactivate>}
     """
 
