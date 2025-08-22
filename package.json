@@ -1,0 +1,21 @@
+{
+  "name": "morgan-stanley-code-to-give-2025-team-6",
+  "version": "1.0.0",
+  "description": "Morgan Stanley Code to Give 2025 Team 6",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JasperLKH/Morgan-Stanley-Code-to-Give-2025-Team-6.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/JasperLKH/Morgan-Stanley-Code-to-Give-2025-Team-6/issues"
+  },
+  "homepage": "https://github.com/JasperLKH/Morgan-Stanley-Code-to-Give-2025-Team-6#readme"
+}
