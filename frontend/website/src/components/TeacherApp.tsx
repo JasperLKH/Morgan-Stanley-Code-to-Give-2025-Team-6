@@ -92,6 +92,15 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
     }
   ]);
 
+  // const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+
+  // useEffect(() => {
+  //   fetch('http://localhost:8000/chat/messages/')
+  //     .then((response) => response.json())
+  //     .then((data) => setChatMessages(data))
+  //     .catch((error) => console.error('Error fetching chat messages:', error));
+  // }, []);
+
   // sample data
   // const students: Student[] = [
   //   {
@@ -194,6 +203,7 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
       .catch((error) => console.error('Error fetching assignments:', error));
   }, []);
 
+  // sample data
   const sendMessage = () => {
     if (chatMessage.trim()) {
       const newMessage: ChatMessage = {
