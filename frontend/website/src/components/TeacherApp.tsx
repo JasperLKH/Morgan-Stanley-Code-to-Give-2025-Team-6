@@ -138,12 +138,64 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
   // students fetched from backend, created by julian
   const [students, setStudents] = useState<Student[]>([]);
 
+  /**
+   * What is this doing?
+   * -------------------
+   * The code below runs once when your component loads (because of the empty dependency array `[]`).
+   * It fetches data from your backend at http://localhost:8000/account/users/.
+   * When the data is received, it parses the JSON and puts the result into your `students` state variable.
+   * 
+   * However, the data you get from the backend is not a list of students directly.
+   * Instead, you get an object with a "users" array inside it, and each user has fields like "children_name".
+   * 
+   * What do I do next?
+   * ------------------
+   * 1. You need to extract the "users" array from the response.
+   * 2. You need to decide what you want to display as a "student". In your sample data, a student has a name, parentName, etc.
+   *    In your backend data, "children_name" is the student's name, and "parent_name" is the parent's name.
+   * 3. You probably want to filter out users that don't have a "children_name" (since only parents have children).
+   * 4. You can then map this data into the format you want for display.
+   * 
+   * Here is how you can update your code:
+   */
   useEffect(() => {
     fetch('http://localhost:8000/account/users/')
       .then((response) => response.json())
-      .then((data) => setStudents(data))
+      .then((data) => {
+        // Extract the users array
+        const users = data.users || [];
+        // Filter for users that have a children_name (i.e., students)
+        const studentsList = users
+          .filter(user => user.children_name) // only users with a student
+          .map(user => ({
+            id: user.id,
+            name: user.children_name,
+            parentName: user.parent_name,
+            // You can add more fields here if you want, or set defaults
+            averageScore: user.points || 0, // or some other logic
+            completedAssignments: 0, // backend doesn't provide, so set to 0 or fetch elsewhere
+            totalAssignments: 0,     // backend doesn't provide, so set to 0 or fetch elsewhere
+            recentFeedback: '',      // backend doesn't provide, so set to empty or fetch elsewhere
+            status: user.is_active ? 'active' : 'inactive', // or your own logic
+          }));
+        setStudents(studentsList);
+      })
       .catch((error) => console.error('Error fetching students:', error));
   }, []);
+  /**
+   * Now, in your JSX, you can display the students like this:
+   * 
+   * <ul>
+   *   {students.map(student => (
+   *     <li key={student.id}>
+   *       <strong>{student.name}</strong> (Parent: {student.parentName})<br />
+   *       Status: {student.status}
+   *     </li>
+   *   ))}
+   * </ul>
+   * 
+   * You can add more fields as you get more data from your backend.
+   */
 
   // // sample data
   // const assignments: Assignment[] = [

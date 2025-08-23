@@ -135,17 +135,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'account.User'
 
-# CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # React frontend
-    "http://127.0.0.1:3000",  # Alternative localhost
-]
 
-# Allow credentials to be included in CORS requests
+# CORS Settings
+CORS_ALLOW_ALL_ORIGINS = True  # Only for development! Change this in production
 CORS_ALLOW_CREDENTIALS = True
 
-# Allow all headers for development
-CORS_ALLOW_ALL_ORIGINS = True  # Set to True only for development if needed
 CORS_ALLOWED_HEADERS = [
     'accept',
     'accept-encoding',
