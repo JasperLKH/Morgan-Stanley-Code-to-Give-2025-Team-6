@@ -37,6 +37,12 @@ class AssignmentSubmissionSerializer(serializers.ModelSerializer):
     assignment = serializers.PrimaryKeyRelatedField(read_only=True)
     assignment_name = serializers.CharField(source='assignment.name', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    attachments = serializers.SerializerMethodField()
+
+    def get_attachments(self, obj):
+        """Get all attachments for this submission"""
+        attachments = obj.attachments.all()
+        return SubmissionAttachmentSerializer(attachments, many=True).data
 
     class Meta:
         model = AssignmentSubmission
@@ -53,8 +59,9 @@ class AssignmentSubmissionSerializer(serializers.ModelSerializer):
             "graded_at",
             "created_at",
             "updated_at",
+            "attachments",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "graded_at", "user_name", "assignment_name", "status_display"]
+        read_only_fields = ["id", "created_at", "updated_at", "graded_at", "user_name", "assignment_name", "status_display", "attachments"]
 
 
 class SubmissionAttachmentSerializer(serializers.ModelSerializer):
