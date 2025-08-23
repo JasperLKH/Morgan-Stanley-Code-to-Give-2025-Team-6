@@ -28,6 +28,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "created_by",
             "created_by_name",
             "hidden",
+            "assigned_to",
         ]
         read_only_fields = ["id", "created_at", "created_by", "created_by_name"]
 
