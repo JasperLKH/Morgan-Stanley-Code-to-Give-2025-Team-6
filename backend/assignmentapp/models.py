@@ -32,6 +32,14 @@ class Assignment(models.Model):
         related_name="created_assignments",
     )
 
+    # Assign this assignment to specific parents
+    assigned_to = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="assigned_assignments",
+        blank=True,
+        help_text="Parents/users this assignment is assigned to. Leave empty to assign to all."
+    )
+
     hidden = models.BooleanField(default=False, help_text="Whether this assignment is hidden from students/parents")
 
     class Meta:
@@ -43,6 +51,14 @@ class Assignment(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} (due {self.due_date})"
+
+    def is_assigned_to_user(self, user) -> bool:
+        """Check if this assignment is assigned to a specific user"""
+        # If no specific assignments, it's assigned to everyone
+        if not self.assigned_to.exists():
+            return True
+        # Otherwise, check if user is in the assigned list
+        return self.assigned_to.filter(id=user.id).exists()
 
 class AssignmentSubmission(models.Model):
     """
