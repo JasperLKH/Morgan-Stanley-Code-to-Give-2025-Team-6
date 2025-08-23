@@ -5,6 +5,34 @@ from .serializers import UserSerializer, LoginSerializer
 from .models import User
 
 
+def update_weekly_points(user_id, points):
+    """
+    Utility function to update a user's weekly points.
+    Can be called by other backend functions.
+    
+    Args:
+        user_id: The ID of the user to update
+        points: Points to add to weekly_points (can be negative to subtract)
+    
+    Returns:
+        tuple: (success: bool, message: str, user: User or None)
+    """
+    if not user_id or points is None:
+        return False, 'Missing required fields: user_id and points', None
+    
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return False, 'User not found', None
+    
+    # Add points to weekly_points
+    user.weekly_points = (user.weekly_points or 0) + points
+    user.save(update_fields=['weekly_points'])
+    
+    return True, f'Successfully updated weekly points for {user.username}', user
+    
+
+
 
 @api_view(['POST'])
 def login(request):
@@ -20,6 +48,7 @@ def login(request):
             'children_name': user.children_name,
             'school': user.school,
             'points': user.points,
+            'weekly_points': user.weekly_points,
             'streaks': user.current_streak
         }
         
@@ -43,6 +72,7 @@ def signup(request):
             'children_name': user.children_name,
             'school': user.school,
             'points': user.points,
+            'weekly_points': user.weekly_points,
             'streaks': user.current_streak
         }
         
@@ -76,6 +106,7 @@ def get_all_users(request):
             'children_name': user.children_name,
             'school': user.school,
             'points': user.points,
+            'weekly_points': user.weekly_points,
             'streaks': user.current_streak,
             'is_active': user.is_active
         }
@@ -111,6 +142,7 @@ def get_user_by_id(request):
         'children_name': user.children_name,
         'school': user.school,
         'points': user.points,
+        'weekly_points': user.weekly_points,
         'streaks': user.current_streak,
         'is_active': user.is_active
     }
@@ -142,6 +174,7 @@ def get_user_by_school(request):
             'children_name': user.children_name,
             'school': user.school,
             'points': user.points,
+            'weekly_points': user.weekly_points,
             'streaks': user.current_streak,
             'is_active': user.is_active
         }
@@ -214,4 +247,64 @@ def deactivate_user(request):
         'username': user.username,
         'is_active': user.is_active
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def get_weekly_leaderboard(request):
+    """
+    Get top 5 parents with the highest weekly points.
+    Query params: school=<school_name> (optional - filter by school)
+    """
+    
+    # Get school filter if provided
+    school = request.GET.get('school')
+    
+    # Filter parents only
+    parents = User.objects.filter(role='parent', is_active=True)
+    
+    # Apply school filter if provided
+    if school:
+        parents = parents.filter(school=school)
+    
+    # Order by weekly_points descending and get top 5
+    top_parents = parents.order_by('-weekly_points')[:5]
+    
+    leaderboard_data = []
+    for rank, parent in enumerate(top_parents, 1):
+        parent_data = {
+            'rank': rank,
+            'id': parent.id,
+            'username': parent.username,
+            'parent_name': parent.parent_name,
+            'children_name': parent.children_name,
+            'school': parent.school,
+            'weekly_points': parent.weekly_points,
+            'total_points': parent.points,
+            'current_streak': parent.current_streak
+        }
+        leaderboard_data.append(parent_data)
+    
+    return Response({
+        'leaderboard': leaderboard_data,
+        'total_count': len(leaderboard_data),
+        'school_filter': school if school else 'All schools'
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def reset_weekly_points(request):
+    """
+    Reset all users' weekly points to 0.
+    This can be called weekly by staff to reset the leaderboard.
+    """
+    
+    # Reset weekly points for all users
+    User.objects.all().update(weekly_points=0)
+    
+    return Response({
+        'message': 'Weekly points have been reset for all users.',
+        'reset_count': User.objects.count()
+    }, status=status.HTTP_200_OK)
+
+
 
