@@ -17,6 +17,7 @@ class User(AbstractUser):
     children_name = models.CharField(max_length=100, blank=True, null=True)
     school = models.CharField(max_length=200, blank=True, null=True)
     points = models.IntegerField(default=0, blank=True, null=True)
+    weekly_points = models.IntegerField(default=0, blank=True, null=True)
     streaks = models.IntegerField(default=0, blank=True, null=True)
     last_submission = models.DateField(blank=True, null=True)
 
