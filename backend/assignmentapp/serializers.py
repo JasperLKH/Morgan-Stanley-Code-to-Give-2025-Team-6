@@ -22,6 +22,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "name",
             "release_date",
             "due_date",
+            "points",
             "questions",
             "created_at",
             "created_by",
