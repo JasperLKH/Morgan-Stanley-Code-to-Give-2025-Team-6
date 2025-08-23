@@ -47,6 +47,44 @@ def assignment_list_create(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(['GET'])
+def user_assignments(request, user_id):
+    """Get assignments for a specific user"""
+    user = get_object_or_404(User, id=user_id)
+    
+    # Get all non-hidden assignments
+    all_assignments = Assignment.objects.filter(hidden=False).order_by('-release_date')
+    
+    # Filter assignments that are assigned to this user
+    assignments = [assignment for assignment in all_assignments if assignment.is_assigned_to_user(user)]
+    
+    # Serialize assignments with submission status for this user
+    assignment_data = []
+    for assignment in assignments:
+        assignment_serializer = AssignmentSerializer(assignment)
+        assignment_info = assignment_serializer.data
+        
+        # Check if user has submitted this assignment
+        submission = AssignmentSubmission.objects.filter(
+            user=user, 
+            assignment=assignment
+        ).first()
+        
+        if submission:
+            submission_serializer = AssignmentSubmissionSerializer(submission)
+            assignment_info['submission'] = submission_serializer.data
+        else:
+            assignment_info['submission'] = None
+            
+        assignment_data.append(assignment_info)
+    
+    return Response({
+        'user_id': user_id,
+        'user_name': user.username,
+        'assignments': assignment_data
+    })
+
+
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @parser_classes([MultiPartParser, FormParser])
 def assignment_detail(request, pk):
@@ -165,12 +203,48 @@ def update_submission_feedback(request, submission_pk):
 
 
 @api_view(['POST'])
+def assign_to_parents(request, assignment_pk):
+    """Assign an assignment to specific parents (staff only)"""
+    user = get_user(request)
+    # Note: Add staff check if needed: if user.role != 'staff': return 403
+    
+    assignment = get_object_or_404(Assignment, pk=assignment_pk)
+    parent_ids = request.data.get('parent_ids', [])
+    
+    if not parent_ids:
+        return Response({'detail': 'parent_ids list is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get parent users
+    parents = User.objects.filter(id__in=parent_ids, role='parent')
+    if len(parents) != len(parent_ids):
+        missing_ids = set(parent_ids) - set(parents.values_list('id', flat=True))
+        return Response({
+            'detail': f'Parent users not found with IDs: {list(missing_ids)}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Clear existing assignments and add new ones
+    assignment.assigned_to.clear()
+    assignment.assigned_to.set(parents)
+    
+    return Response({
+        'status': 'assigned',
+        'assignment_id': assignment.id,
+        'assigned_to': [{'id': p.id, 'username': p.username} for p in parents],
+        'message': f'Assignment assigned to {len(parents)} parents'
+    })
+
+
+@api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def submit_assignment(request, assignment_pk):
     """Submit an assignment (parent only)"""
     user = get_user(request)
 
     assignment = get_object_or_404(Assignment, pk=assignment_pk)
+    
+    # Check if assignment is assigned to this user
+    if not assignment.is_assigned_to_user(user):
+        return Response({'detail': 'This assignment is not assigned to you'}, status=status.HTTP_403_FORBIDDEN)
     
     # Check if assignment is not hidden
     if assignment.hidden:

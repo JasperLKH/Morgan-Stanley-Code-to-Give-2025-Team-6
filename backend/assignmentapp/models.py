@@ -12,6 +12,7 @@ class Assignment(models.Model):
     name = models.CharField(max_length=255)
     release_date = models.DateField()
     due_date = models.DateField()
+    points = models.IntegerField(default=10, help_text="Points awarded for completing this assignment")
 
     questions = models.FileField(
         upload_to="assignments/questions/%Y/%m/%d/",
@@ -32,6 +33,14 @@ class Assignment(models.Model):
         related_name="created_assignments",
     )
 
+    # Assign this assignment to specific parents
+    assigned_to = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="assigned_assignments",
+        blank=True,
+        help_text="Parents/users this assignment is assigned to. Leave empty to assign to all."
+    )
+
     hidden = models.BooleanField(default=False, help_text="Whether this assignment is hidden from students/parents")
 
     class Meta:
@@ -43,6 +52,14 @@ class Assignment(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} (due {self.due_date})"
+
+    def is_assigned_to_user(self, user) -> bool:
+        """Check if this assignment is assigned to a specific user"""
+        # If no specific assignments, it's assigned to everyone
+        if not self.assigned_to.exists():
+            return True
+        # Otherwise, check if user is in the assigned list
+        return self.assigned_to.filter(id=user.id).exists()
 
 class AssignmentSubmission(models.Model):
     """
@@ -112,11 +129,22 @@ class AssignmentSubmission(models.Model):
         """
         Set status to GRADED and stamp graded_at.
         """
+        was_already_graded = self.status == self.STATUS_GRADED
+        
         self.status = self.STATUS_GRADED
         self.score = score
         self.feedback = feedback
         self.graded_at = when or timezone.now()
         self.save(update_fields=["status", "score", "feedback", "graded_at", "updated_at"])
+        
+        # Award points to user if this is the first time being graded and score is passing
+        if not was_already_graded and score is not None and score >= 70:  # Assuming 70% is passing
+            points_to_award = self.assignment.points
+            if hasattr(self.user, 'points') and self.user.points is not None:
+                self.user.points += points_to_award
+            else:
+                self.user.points = points_to_award
+            self.user.save(update_fields=['points'])
 
 class SubmissionAttachment(models.Model):
     """
