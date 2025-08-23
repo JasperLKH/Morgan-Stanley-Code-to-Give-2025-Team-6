@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
-from .serializers import UserSerializer, LoginSerializer
+from .serializers import UserSerializer, LoginSerializer, UpdateUserNameSerializer
 from .models import User
 
 @api_view(['POST'])
@@ -284,6 +284,75 @@ def reset_weekly_points(request):
     return Response({
         'message': 'Weekly points have been reset for all users.',
         'reset_count': User.objects.count()
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def update_user_name(request):
+    """
+    Update user's name fields based on their role.
+    Usage: POST /update_user_name/
+    JSON body: {
+        "user_id": <user_id_to_update>,
+        "staff_name": <name_for_staff_role> (optional),
+        "teacher_name": <name_for_teacher_role> (optional),
+        "parent_name": <name_for_parent_role> (optional)
+    }
+    
+    Note: At least one name field must be provided.
+    """
+    
+    serializer = UpdateUserNameSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    validated_data = serializer.validated_data
+    user_id = validated_data['user_id']
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Track what fields were updated
+    updated_fields = []
+    
+    # Update fields based on provided data
+    if 'staff_name' in validated_data:
+        user.staff_name = validated_data['staff_name']
+        updated_fields.append('staff_name')
+    
+    if 'teacher_name' in validated_data:
+        user.teacher_name = validated_data['teacher_name']
+        updated_fields.append('teacher_name')
+    
+    if 'parent_name' in validated_data:
+        user.parent_name = validated_data['parent_name']
+        updated_fields.append('parent_name')
+    
+    # Save the user with updated fields
+    user.save(update_fields=updated_fields)
+    
+    # Return updated user data
+    user_data = {
+        'id': user.id,
+        'username': user.username,
+        'role': user.role,
+        'parent_name': user.parent_name,
+        'children_name': user.children_name,
+        'staff_name': user.staff_name,
+        'teacher_name': user.teacher_name,
+        'school': user.school,
+        'points': user.points,
+        'weekly_points': user.weekly_points,
+        'streaks': user.current_streak,
+        'is_active': user.is_active
+    }
+    
+    return Response({
+        'message': f'Successfully updated {", ".join(updated_fields)} for user {user.username}',
+        'updated_fields': updated_fields,
+        'user': user_data
     }, status=status.HTTP_200_OK)
 
 

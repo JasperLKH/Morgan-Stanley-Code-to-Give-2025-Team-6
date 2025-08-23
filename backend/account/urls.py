@@ -12,6 +12,7 @@ urlpatterns = [
     path("users/by-school/", views.get_user_by_school, name="get_user_by_school"),
     path("users/activate/", views.activate_user, name="activate_user"),
     path("users/deactivate/", views.deactivate_user, name="deactivate_user"),
+    path("users/update-name/", views.update_user_name, name="update_user_name"),
     path("leaderboard/weekly/", views.get_weekly_leaderboard, name="get_weekly_leaderboard"),
     path("points/weekly/reset/", views.reset_weekly_points, name="reset_weekly_points")
     ]

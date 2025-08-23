@@ -123,7 +123,7 @@ class AssignmentSubmission(models.Model):
         
         # Update user's streak if applicable
         submitted_day = now.date()
-        self.user.update_streak_on_submission(submitted_on=submitted_day)
+        self.user.update_on_submission(submitted_on=submitted_day, points=self.assignment.points)
 
     def mark_graded(self, score: float | None, feedback: str | None, when: timezone.datetime | None = None) -> None:
         """

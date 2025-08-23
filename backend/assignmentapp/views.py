@@ -8,6 +8,7 @@ from django.core.paginator import Paginator
 from account.models import User
 
 from .models import Assignment, AssignmentSubmission, SubmissionAttachment
+from account.models import User
 from .serializers import AssignmentSerializer, AssignmentSubmissionSerializer
 
 
@@ -272,7 +273,8 @@ def submit_assignment(request, assignment_pk):
             assignment=assignment,
             status=AssignmentSubmission.STATUS_SUBMITTED
         )
-        submission.mark_submitted()  # This will update user's streak
+        submission.mark_submitted()  
+        
     
     # Handle single file attachment from request.FILES
     if request.FILES:
