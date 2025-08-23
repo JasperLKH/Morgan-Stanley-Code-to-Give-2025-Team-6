@@ -47,43 +47,36 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.username} ({self.role})"
     
-    def update_streak_on_submission(self, submitted_on: date | None = None) -> None:
+    def update_on_submission(self, points: int = 0, submitted_on: date | None = None) -> None:
         """
         Call this when a submission is made today (or pass a specific date).
-        If last_submission was exactly yesterday, increment streak; else reset to 1.
+        Updates streak, points, and weekly points all at once.
+        
+        Args:
+            points: Points to add to total points
+            weekly_points: Points to add to weekly points
+            submitted_on: Date of submission (defaults to today)
         """
         today = submitted_on or date.today()
+        
+        # Update streak logic
         if self.last_submission == today - timedelta(days=1):
             self.streaks = (self.streaks or 0) + 1
         else:
             self.streaks = 1
         self.last_submission = today
-        self.save(update_fields=["streaks", "last_submission"])
+        
+        # Update points
+        if points:
+            self.points = (self.points or 0) + points
+            self.weekly_points = (self.weekly_points or 0) + points
+        
+        # Save all changes at once
+        update_fields = ["streaks", "last_submission"]
+        if points:
+            update_fields.append("points")
+            update_fields.append("weekly_points")
+            
+        self.save(update_fields=update_fields)
 
-    def update_weekly_points(user_id, points):
-        """
-        Utility function to update a user's weekly points.
-        Can be called by other backend functions.
-        
-        Args:
-            user_id: The ID of the user to update
-            points: Points to add to weekly_points (can be negative to subtract)
-        
-        Returns:
-            tuple: (success: bool, message: str, user: User or None)
-        """
-        if not user_id or points is None:
-            return False, 'Missing required fields: user_id and points', None
-        
-        try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return False, 'User not found', None
-        
-        # Add points to weekly_points
-        user.weekly_points = (user.weekly_points or 0) + points
-        user.save(update_fields=['weekly_points'])
-        
-        return True, f'Successfully updated weekly points for {user.username}', user
-    
 
