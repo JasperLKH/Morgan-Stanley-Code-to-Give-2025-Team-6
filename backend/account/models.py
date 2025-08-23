@@ -13,6 +13,8 @@ class User(AbstractUser):
     ]
     
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='parent')
+    staff_name = models.CharField(max_length=100, blank=True, null=True)
+    teacher_name = models.CharField(max_length=100, blank=True, null=True)
     parent_name = models.CharField(max_length=100, blank=True, null=True)
     children_name = models.CharField(max_length=100, blank=True, null=True)
     school = models.CharField(max_length=200, blank=True, null=True)
@@ -84,6 +86,4 @@ class User(AbstractUser):
         
         return True, f'Successfully updated weekly points for {user.username}', user
     
-    
 
-    
