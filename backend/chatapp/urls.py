@@ -27,4 +27,6 @@ urlpatterns = [
     # Questionnaire management
     path("questionnaires/", views.questionnaire_list_create, name="questionnaire_list_create"),
     path("questionnaires/<int:pk>/", views.questionnaire_detail, name="questionnaire_detail"),
+    path("questionnaires/<int:pk>/deactivate/", views.questionnaire_deactivate, name="questionnaire_deactivate"),
+    path("questionnaires/<int:pk>/activate/", views.questionnaire_activate, name="questionnaire_activate"),
 ]

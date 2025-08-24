@@ -403,8 +403,8 @@ def questionnaire_list_create(request):
         return Response({'error': 'User-ID invalid'}, status=status.HTTP_401_UNAUTHORIZED)
 
     if request.method == 'GET':
-        # Get all active questionnaires
-        questionnaires = Questionnaire.objects.filter(is_active=True)
+        # Get all questionnaires (both active and inactive)
+        questionnaires = Questionnaire.objects.all()
         serializer = QuestionnaireSerializer(questionnaires, many=True, context={'request': request})
         return Response({
             'questionnaires': serializer.data,
@@ -415,8 +415,12 @@ def questionnaire_list_create(request):
         # Only staff can create questionnaires
         if user.role != 'staff':
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        data = request.data.copy()
+        if 'is_active' not in data:
+            data['is_active'] = True
 
-        serializer = QuestionnaireSerializer(data=request.data, context={'request': request})
+        serializer = QuestionnaireSerializer(data=data, context={'request': request})
         if serializer.is_valid():
             questionnaire = serializer.save(created_by=user)
             return Response({
@@ -466,10 +470,63 @@ def questionnaire_detail(request, pk):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
-        # Only staff can delete questionnaires
+        # Only staff can permanently delete questionnaires
         if user.role != 'staff':
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        questionnaire.is_active = False
-        questionnaire.save()
-        return Response({'message': 'Questionnaire deactivated successfully'}, status=status.HTTP_200_OK)
+        questionnaire.delete()
+        return Response({'message': 'Questionnaire permanently deleted'}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def questionnaire_deactivate(request, pk):
+    """
+    POST: Deactivate a questionnaire (staff only)
+    Headers: User-ID: <user_id>
+    """
+    user = get_user_from_request(request)
+    if not user:
+        return Response({'error': 'User-ID invalid'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if user.role != 'staff':
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        questionnaire = Questionnaire.objects.get(id=pk)
+    except Questionnaire.DoesNotExist:
+        return Response({'error': 'Questionnaire not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    questionnaire.is_active = False
+    questionnaire.save()
+    
+    return Response({
+        'message': 'Questionnaire deactivated successfully',
+        'questionnaire': QuestionnaireSerializer(questionnaire, context={'request': request}).data
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def questionnaire_activate(request, pk):
+    """
+    POST: Activate a questionnaire (staff only)
+    Headers: User-ID: <user_id>
+    """
+    user = get_user_from_request(request)
+    if not user:
+        return Response({'error': 'User-ID invalid'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if user.role != 'staff':
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        questionnaire = Questionnaire.objects.get(id=pk)
+    except Questionnaire.DoesNotExist:
+        return Response({'error': 'Questionnaire not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    questionnaire.is_active = True
+    questionnaire.save()
+    
+    return Response({
+        'message': 'Questionnaire activated successfully',
+        'questionnaire': QuestionnaireSerializer(questionnaire, context={'request': request}).data
+    }, status=status.HTTP_200_OK)
