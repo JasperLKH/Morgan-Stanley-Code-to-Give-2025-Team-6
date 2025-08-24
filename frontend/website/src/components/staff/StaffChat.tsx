@@ -9,10 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { MessageCircle, Send, GraduationCap, Heart, Search, Paperclip, X } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000';
-const CURRENT_STAFF = { id: 6, username: 'staff1', role: 'staff' as const };
+const CURRENT_STAFF = { id: 2, username: 'staff1', role: 'staff' as const };
+// TODO: replace with actual logged-in user
 
 const withUserHeader = (init?: RequestInit): RequestInit => ({
-  credentials: 'include',
+  credentials: 'omit',
   ...(init || {}),
   headers: {
     ...(init?.headers || {}),

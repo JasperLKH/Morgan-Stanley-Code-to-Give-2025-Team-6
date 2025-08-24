@@ -45,7 +45,8 @@ type ChatMessage = {
 
 const API_BASE = 'http://localhost:8000';
 const CHAT_POLL_MS = 3000;
-const TEACHER_ID = 8;
+const TEACHER_ID = 19;
+// TODO: replace with actual logged-in user
 
 const formatTime = (ts: string) => {
   const d = new Date(ts);
@@ -65,7 +66,7 @@ export function TeacherChat() {
   const endRef = useRef<HTMLDivElement | null>(null);
 
   const withUserHeader = (init?: RequestInit): RequestInit => ({
-    credentials: 'include',
+    credentials: 'omit',
     ...(init || {}),
     headers: { ...(init?.headers || {}), 'User-ID': String(TEACHER_ID) },
   });
@@ -74,6 +75,7 @@ export function TeacherChat() {
     const convRes = await fetch(`${API_BASE}/chat/conversations/`, withUserHeader());
     if (!convRes.ok) throw new Error(`Failed to load conversations (${convRes.status})`);
     const convPayload: { conversations: ApiConversation[] } = await convRes.json();
+    console.log(convPayload)
     const all = convPayload.conversations || [];
 
     const existing =
