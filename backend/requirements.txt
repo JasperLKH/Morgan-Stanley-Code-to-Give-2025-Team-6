@@ -4,3 +4,4 @@ django-cors-headers
 python-dotenv
 # For serving static files in dev/prod
 whitenoise==6.7.0
+Pillow
