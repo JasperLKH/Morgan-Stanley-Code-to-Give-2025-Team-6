@@ -1,452 +1,654 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Textarea } from '../ui/textarea';
-import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Badge } from '../ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { 
-  Plus, 
-  Edit, 
-  Heart, 
-  MessageCircle, 
-  Eye, 
-  Users,
+import React, { useEffect, useMemo, useState } from "react";
+import { Card, CardContent } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+import { Badge } from "../ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
+import { Label } from "../ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import {
+  Edit,
+  Heart,
+  MessageCircle,
   Calendar,
   Trash2,
   Pin,
-  Image as ImageIcon
-} from 'lucide-react';
+  Paperclip,
+  Eye,
+  Send,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Plus,
+} from "lucide-react";
+
+type Role = "staff" | "parent";
 
 interface User {
-  id: string;
+  id: string; // header "User-ID"
   name: string;
-  role: string;
+  role: Role;
 }
 
-interface CommunityPost {
-  id: string;
-  title: string;
+/** ===== API TYPES inferred from your curls ===== */
+type ApiUserSlim = { id: number; username: string; role: Role };
+
+type ApiPost = {
+  id: number;
   content: string;
-  author: string;
-  authorRole: 'staff' | 'parent';
-  category: 'announcement' | 'tip' | 'event' | 'resource';
-  createdDate: string;
-  likes: number;
-  comments: number;
-  views: number;
-  isPinned: boolean;
-  status: 'published' | 'draft';
-  imageUrl?: string;
-}
+  posted_by: ApiUserSlim;
+  posted_by_name: string;
+  posted_at: string; // ISO
+  status: "posted" | "pending" | "pending approval" | "rejected" | "draft";
+  status_display: string;
+  is_pinned: boolean;
+  attachments: { id?: number; name?: string; url?: string }[];
+  total_likes: number;
+  total_comments: number;
+  is_liked_by_user: boolean;
+};
 
-interface NewPost {
-  title: string;
+type ApiPostList = { posts: ApiPost[]; total_count: number };
+
+type ApiComment = {
+  id: number;
   content: string;
-  category: 'announcement' | 'tip' | 'event' | 'resource';
-  status: 'published' | 'draft';
+  comment_from: ApiUserSlim;
+  comment_from_name: string;
+  comment_at: string; // ISO
+  parent_comment: number | null;
+  replies: ApiComment[];
+};
+type ApiCommentList = { comments: ApiComment[]; total_count: number };
+
+/** ===== CONFIG (Vite env; no Node typings needed) ===== */
+const BASE_URL = "http://127.0.0.1:8000";
+
+async function api<T = any>(
+  path: string,
+  opts: RequestInit & { userId: string }
+): Promise<T> {
+  const { userId, ...rest } = opts;
+  const headers: HeadersInit = {
+    "User-ID": userId,
+    ...(rest.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+    ...(rest.headers ?? {}),
+  };
+  const res = await fetch(`${BASE_URL}${path}`, { ...rest, headers });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText} - ${text}`);
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
 }
 
-interface CommunityManagementProps {
+interface Props {
   user: User;
 }
 
-export function CommunityManagement({ user }: CommunityManagementProps) {
-  const [newPost, setNewPost] = useState<NewPost>({
-    title: '',
-    content: '',
-    category: 'announcement',
-    status: 'published'
-  });
+export const CommunityManagement: React.FC<Props> = ({ user }) => {
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"published" | "pending" | "drafts">("published");
+  const [posts, setPosts] = useState<ApiPost[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  const posts: CommunityPost[] = [
-    {
-      id: '1',
-      title: '🎉 New Reading Program Launch!',
-      content: 'We\'re excited to announce our new reading program designed to help kindergarten students develop strong literacy skills. This program includes interactive storytelling sessions, reading comprehension activities, and family reading challenges.',
-      author: 'REACH Team',
-      authorRole: 'staff',
-      category: 'announcement',
-      createdDate: '2024-12-20',
-      likes: 24,
-      comments: 8,
-      views: 156,
-      isPinned: true,
-      status: 'published'
-    },
-    {
-      id: '2',
-      title: '💡 Tips for Reading with Your Child',
-      content: 'Here are some effective ways to make reading time more engaging: 1) Ask questions about the story, 2) Let your child predict what happens next, 3) Use different voices for characters, 4) Relate the story to your child\'s experiences.',
-      author: 'REACH Team',
-      authorRole: 'staff',
-      category: 'tip',
-      createdDate: '2024-12-19',
-      likes: 18,
-      comments: 5,
-      views: 89,
-      isPinned: false,
-      status: 'published'
-    },
-    {
-      id: '3',
-      title: '📚 Emma\'s Reading Success!',
-      content: 'So proud of Emma! She read her first complete book today and couldn\'t stop talking about the characters. Thank you REACH team for the amazing support!',
-      author: 'Sarah Chen',
-      authorRole: 'parent',
-      category: 'resource',
-      createdDate: '2024-12-18',
-      likes: 32,
-      comments: 12,
-      views: 203,
-      isPinned: false,
-      status: 'published'
-    },
-    {
-      id: '4',
-      title: '🎨 Holiday Art & Craft Workshop',
-      content: 'Join us for a special holiday workshop where children and parents can create festive decorations together. This event promotes creativity and family bonding.',
-      author: 'REACH Team',
-      authorRole: 'staff',
-      category: 'event',
-      createdDate: '2024-12-17',
-      likes: 45,
-      comments: 15,
-      views: 278,
-      isPinned: true,
-      status: 'published'
-    },
-    {
-      id: '5',
-      title: 'Math Learning Resources',
-      content: 'Collection of fun math activities and games that parents can use at home to reinforce learning.',
-      author: 'REACH Team',
-      authorRole: 'staff',
-      category: 'resource',
-      createdDate: '2024-12-15',
-      likes: 0,
-      comments: 0,
-      views: 0,
-      isPinned: false,
-      status: 'draft'
+  // detail panel
+  const [activePost, setActivePost] = useState<ApiPost | null>(null);
+  const [comments, setComments] = useState<ApiComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newComment, setNewComment] = useState("");
+
+  // edit dialog
+  const [editing, setEditing] = useState<ApiPost | null>(null);
+  const [editContent, setEditContent] = useState("");
+
+  // create dialog
+  const [creating, setCreating] = useState(false);
+  const [createContent, setCreateContent] = useState("");
+  const [createFiles, setCreateFiles] = useState<File[]>([]);
+  const userIsStaff = user.role === "staff";
+
+  /** ===== LOAD POSTS ===== */
+  async function fetchPosts(status?: "posted" | "pending" | "draft") {
+    setLoading(true);
+    setError(null);
+    try {
+      const q = status ? `?status=${encodeURIComponent(status)}` : "";
+      const data = await api<ApiPostList>(`/forum/posts/${q}`, {
+        method: "GET",
+        userId: user.id,
+      });
+      setPosts(data.posts);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to load posts");
+    } finally {
+      setLoading(false);
     }
-  ];
+  }
 
-  const createPost = () => {
-    console.log('Creating post:', newPost);
-    setNewPost({
-      title: '',
-      content: '',
-      category: 'announcement',
-      status: 'published'
+  useEffect(() => {
+    if (tab === "published") fetchPosts("posted");
+    else if (tab === "pending") fetchPosts("pending"); // server uses "pending" for approval queue
+    else fetchPosts("draft");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  /** ===== DETAIL: COMMENTS & ATTACHMENTS ===== */
+  async function openPost(post: ApiPost) {
+    setActivePost(post);
+    await loadComments(post.id);
+  }
+
+  async function loadComments(postId: number) {
+    setCommentsLoading(true);
+    try {
+      const data = await api<ApiCommentList>(`/forum/posts/${postId}/comments/`, {
+        method: "GET",
+        userId: user.id,
+      });
+      setComments(data.comments);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }
+
+  /** ===== ACTIONS ===== */
+  async function toggleLike(post: ApiPost) {
+    // optimistic
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === post.id
+          ? {
+              ...p,
+              is_liked_by_user: !p.is_liked_by_user,
+              total_likes: p.is_liked_by_user ? Math.max(0, p.total_likes - 1) : p.total_likes + 1,
+            }
+          : p
+      )
+    );
+    if (activePost?.id === post.id) {
+      setActivePost((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_liked_by_user: !prev.is_liked_by_user,
+              total_likes: prev.is_liked_by_user ? Math.max(0, prev.total_likes - 1) : prev.total_likes + 1,
+            }
+          : prev
+      );
+    }
+    try {
+      await api(`/forum/posts/${post.id}/like/`, { method: "POST", userId: user.id });
+    } catch {
+      // on failure, just refetch list
+      await fetchPosts(tab === "published" ? "posted" : tab === "pending" ? "pending" : "draft");
+    }
+  }
+
+  async function togglePin(post: ApiPost) {
+    await api(`/forum/posts/${post.id}/pin/`, { method: "POST", userId: user.id });
+    await fetchPosts(tab === "published" ? "posted" : tab === "pending" ? "pending" : "draft");
+  }
+
+  async function approvePost(post: ApiPost) {
+    await api(`/forum/posts/${post.id}/approve/`, { method: "POST", userId: user.id });
+    await fetchPosts("pending"); // remove from pending view
+  }
+
+  async function rejectPost(post: ApiPost) {
+    await api(`/forum/posts/${post.id}/reject/`, { method: "POST", userId: user.id });
+    await fetchPosts("pending");
+  }
+
+  async function deletePost(post: ApiPost) {
+    await api(`/forum/posts/${post.id}/`, { method: "DELETE", userId: user.id });
+    await fetchPosts(tab === "published" ? "posted" : tab === "pending" ? "pending" : "draft");
+    if (activePost?.id === post.id) setActivePost(null);
+  }
+
+  function openEdit(post: ApiPost) {
+    setEditing(post);
+    setEditContent(post.content ?? "");
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    await api(`/forum/posts/${editing.id}/`, {
+      method: "PUT",
+      userId: user.id,
+      body: JSON.stringify({
+        content: editContent,
+        is_pinned: editing.is_pinned,
+        status: editing.status, // keep as-is
+      }),
     });
-  };
+    setEditing(null);
+    setEditContent("");
+    await fetchPosts(tab === "published" ? "posted" : tab === "pending" ? "pending" : "draft");
+  }
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'announcement': return 'bg-blue-100 text-blue-800';
-      case 'tip': return 'bg-green-100 text-green-800';
-      case 'event': return 'bg-purple-100 text-purple-800';
-      case 'resource': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+  async function addComment() {
+    if (!activePost || !newComment.trim()) return;
+    await api(`/forum/posts/${activePost.id}/comments/`, {
+      method: "POST",
+      userId: user.id,
+      body: JSON.stringify({ content: newComment.trim() }),
+    });
+    setNewComment("");
+    await loadComments(activePost.id);
+    await fetchPosts(tab === "published" ? "posted" : tab === "pending" ? "pending" : "draft");
+  }
+
+  async function uploadAttachmentTo(postId: number, file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    await api(`/forum/posts/${postId}/attachments/`, {
+      method: "POST",
+      userId: user.id,
+      body: form,
+    });
+  }
+
+  /** Create post with optional attachments */
+  async function createStaffPost() {
+    if (!createContent.trim()) return;
+
+    // 1) Create the post (auto-approved for staff)
+    let createdId: number | undefined;
+    try {
+      const created = await api<ApiPost>(`/forum/posts/`, {
+        method: "POST",
+        userId: user.id,
+        body: JSON.stringify({
+          content: createContent.trim()
+        }),
+      });
+      createdId = created?.id;
+    } catch (e) {
+      // backend might return a different body; still try to find newly created
     }
-  };
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'announcement': return '📢';
-      case 'tip': return '💡';
-      case 'event': return '📅';
-      case 'resource': return '📚';
-      default: return '📝';
+    // 2) If we didn't get an id, refetch and pick the top post from this user that matches content
+    if (!createdId) {
+      const data = await api<ApiPostList>(`/forum/posts/?status=posted`, { method: "GET", userId: user.id });
+      const mine = data.posts.filter((p) => p.posted_by?.id?.toString() === user.id);
+      const candidate = mine.sort((a, b) => +new Date(b.posted_at) - +new Date(a.posted_at)).find((p) =>
+        p.content?.includes(createContent.trim().slice(0, 20))
+      );
+      createdId = candidate?.id;
     }
-  };
 
-  const publishedPosts = posts.filter(p => p.status === 'published');
-  const draftPosts = posts.filter(p => p.status === 'draft');
+    // 3) Upload attachments (if any)
+    if (createdId && createFiles.length) {
+      for (const f of createFiles) {
+        await uploadAttachmentTo(createdId, f);
+      }
+    }
+
+    // 4) Reset UI
+    setCreating(false);
+    setCreateContent("");
+    setCreateFiles([]);
+    await fetchPosts("posted");
+    setTab("published");
+  }
+
+  const published = useMemo(() => posts.filter((p) => p.status === "posted"), [posts]);
+  const pending = useMemo(
+    () => posts.filter((p) => p.status === "pending" || p.status === "pending approval"),
+    [posts]
+  );
+  const drafts = useMemo(() => posts.filter((p) => p.status === "draft"), [posts]);
+
+  /** ===== Row ===== */
+  const PostRow: React.FC<{ post: ApiPost }> = ({ post }) => (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge variant="outline">{post.status_display}</Badge>
+              {post.is_pinned && (
+                <Badge className="bg-yellow-100 text-yellow-800">
+                  <Pin className="w-3 h-3 mr-1" />
+                  Pinned
+                </Badge>
+              )}
+              {!!post.attachments?.length && (
+                <Badge variant="secondary" className="gap-1">
+                  <Paperclip className="w-3 h-3" />
+                  {post.attachments.length}
+                </Badge>
+              )}
+            </div>
+
+            <p className="text-gray-900 whitespace-pre-wrap">{post.content}</p>
+
+            <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">
+              <div className="flex items-center gap-1">
+                <Avatar className="w-6 h-6">
+                  <AvatarFallback className="bg-blue-500 text-white text-xs">
+                    {(post.posted_by_name || post.posted_by.username).slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{post.posted_by_name || post.posted_by.username}</span>
+              </div>
+              <span className="flex items-center gap-1">
+                <Calendar className="w-4 h-4" />
+                {new Date(post.posted_at).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="text-center p-2 bg-gray-50 rounded">
+            <div className="flex items-center justify-center gap-1">
+              <Heart className={`w-4 h-4 ${post.is_liked_by_user ? "text-red-500" : "text-gray-500"}`} />
+              <span className="text-gray-900">{post.total_likes}</span>
+            </div>
+            <p className="text-xs text-gray-500">Likes</p>
+          </div>
+          <div className="text-center p-2 bg-gray-50 rounded">
+            <div className="flex items-center justify-center gap-1">
+              <MessageCircle className="w-4 h-4 text-blue-500" />
+              <span className="text-gray-900">{post.total_comments}</span>
+            </div>
+            <p className="text-xs text-gray-500">Comments</p>
+          </div>
+          <div className="text-center p-2 bg-gray-50 rounded">
+            <div className="flex items-center justify-center gap-1">
+              <Paperclip className="w-4 h-4 text-purple-500" />
+              <span className="text-gray-900">{post.attachments?.length ?? 0}</span>
+            </div>
+            <p className="text-xs text-gray-500">Attachments</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" className="flex-1" onClick={() => openPost(post)}>
+            <Eye className="w-4 h-4 mr-1" />
+            View Post
+          </Button>
+
+          <Button size="sm" variant="outline" className="flex-1" onClick={() => toggleLike(post)}>
+            <Heart className={`w-4 h-4 mr-1 ${post.is_liked_by_user ? "text-red-500" : ""}`} />
+            {post.is_liked_by_user ? "Unlike" : "Like"}
+          </Button>
+
+          {userIsStaff && (
+            <>
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => openEdit(post)}>
+                <Edit className="w-4 h-4 mr-1" />
+                Edit
+              </Button>
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => togglePin(post)}>
+                <Pin className="w-4 h-4 mr-1" />
+                {post.is_pinned ? "Unpin" : "Pin"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 text-red-600 hover:text-red-700"
+                onClick={() => deletePost(post)}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+            </>
+          )}
+
+          {userIsStaff && (post.status === "pending" || post.status === "pending approval") && (
+            <>
+              <Button size="sm" className="flex-1" onClick={() => approvePost(post)}>
+                <CheckCircle2 className="w-4 h-4 mr-1" />
+                Approve
+              </Button>
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => rejectPost(post)}>
+                <XCircle className="w-4 h-4 mr-1" />
+                Reject
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl text-gray-900">Community Management</h2>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="flex items-center space-x-2">
-              <Plus className="w-4 h-4" />
-              <span>Create Post</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create New Community Post</DialogTitle>
-              <DialogDescription>
-                Share announcements, tips, events, or resources with parents
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="title">Post Title</Label>
-                <Input
-                  id="title"
-                  value={newPost.title}
-                  onChange={(e) => setNewPost({...newPost, title: e.target.value})}
-                  placeholder="Enter post title"
-                />
-              </div>
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <Select
-                  value={newPost.category}
-                  onValueChange={(value: 'announcement' | 'tip' | 'event' | 'resource') => 
-                    setNewPost({...newPost, category: value})
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="announcement">📢 Announcement</SelectItem>
-                    <SelectItem value="tip">💡 Educational Tip</SelectItem>
-                    <SelectItem value="event">📅 Event</SelectItem>
-                    <SelectItem value="resource">📚 Resource</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="content">Content</Label>
+
+        {userIsStaff && (
+          <Dialog open={creating} onOpenChange={setCreating}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="w-4 h-4" />
+                Create Staff Post
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Create New Post</DialogTitle>
+                <DialogDescription>Post immediately as staff and upload attachments.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Label>Content</Label>
                 <Textarea
-                  id="content"
-                  value={newPost.content}
-                  onChange={(e) => setNewPost({...newPost, content: e.target.value})}
-                  placeholder="Write your post content..."
                   rows={6}
+                  placeholder="Write your announcement or tip…"
+                  value={createContent}
+                  onChange={(e) => setCreateContent(e.target.value)}
                 />
+
+                <div className="space-y-1">
+                  <Label>Attachments (optional)</Label>
+                  <Input
+                    type="file"
+                    multiple
+                    onChange={(e) => setCreateFiles(Array.from(e.target.files || []))}
+                  />
+                  {createFiles.length > 0 && (
+                    <p className="text-xs text-gray-500">{createFiles.length} file(s) selected</p>
+                  )}
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={createStaffPost} disabled={!createContent.trim()}>
+                    Publish
+                  </Button>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={newPost.status}
-                  onValueChange={(value: 'published' | 'draft') => 
-                    setNewPost({...newPost, status: value})
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="published">Publish Immediately</SelectItem>
-                    <SelectItem value="draft">Save as Draft</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" className="flex-1">
-                  <ImageIcon className="w-4 h-4 mr-2" />
-                  Add Image
-                </Button>
-                <Button onClick={createPost} className="flex-1">
-                  {newPost.status === 'published' ? 'Publish Post' : 'Save Draft'}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Eye className="w-5 h-5 text-blue-600" />
-            </div>
-            <p className="text-2xl text-gray-900">{publishedPosts.reduce((sum, post) => sum + post.views, 0)}</p>
-            <p className="text-xs text-gray-600">Total Views</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Heart className="w-5 h-5 text-red-600" />
-            </div>
-            <p className="text-2xl text-gray-900">{publishedPosts.reduce((sum, post) => sum + post.likes, 0)}</p>
-            <p className="text-xs text-gray-600">Total Likes</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <MessageCircle className="w-5 h-5 text-green-600" />
-            </div>
-            <p className="text-2xl text-gray-900">{publishedPosts.reduce((sum, post) => sum + post.comments, 0)}</p>
-            <p className="text-xs text-gray-600">Total Comments</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Users className="w-5 h-5 text-purple-600" />
-            </div>
-            <p className="text-2xl text-gray-900">{publishedPosts.length}</p>
-            <p className="text-xs text-gray-600">Published Posts</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="published" className="w-full">
-        <TabsList>
-          <TabsTrigger value="published">Published Posts ({publishedPosts.length})</TabsTrigger>
-          <TabsTrigger value="drafts">Drafts ({draftPosts.length})</TabsTrigger>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="published">Published ({published.length})</TabsTrigger>
+          <TabsTrigger value="pending">Pending ({pending.length})</TabsTrigger>
+          <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>
         </TabsList>
 
-        {/* Published Posts */}
-        <TabsContent value="published" className="space-y-4 mt-6">
-          {publishedPosts.map((post) => (
-            <Card key={post.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Badge className={getCategoryColor(post.category)} variant="secondary">
-                        {getCategoryIcon(post.category)} {post.category}
-                      </Badge>
-                      {post.isPinned && (
-                        <Badge className="bg-yellow-100 text-yellow-800">
-                          <Pin className="w-3 h-3 mr-1" />
-                          Pinned
-                        </Badge>
-                      )}
-                      <Badge variant="outline">
-                        {post.status}
-                      </Badge>
-                    </div>
-                    <h3 className="text-lg text-gray-900 mb-2">{post.title}</h3>
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-3">{post.content}</p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <div className="flex items-center space-x-1">
-                        <Avatar className="w-6 h-6">
-                          <AvatarFallback className={`text-xs ${
-                            post.authorRole === 'staff' ? 'bg-blue-500 text-white' : 'bg-gray-500 text-white'
-                          }`}>
-                            {post.author.split(' ').map(n => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span>{post.author}</span>
-                      </div>
-                      <span className="flex items-center space-x-1">
-                        <Calendar className="w-4 h-4" />
-                        <span>{post.createdDate}</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-center space-x-1">
-                      <Heart className="w-4 h-4 text-red-500" />
-                      <span className="text-lg text-gray-900">{post.likes}</span>
-                    </div>
-                    <p className="text-xs text-gray-600">Likes</p>
-                  </div>
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-center space-x-1">
-                      <MessageCircle className="w-4 h-4 text-blue-500" />
-                      <span className="text-lg text-gray-900">{post.comments}</span>
-                    </div>
-                    <p className="text-xs text-gray-600">Comments</p>
-                  </div>
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-center space-x-1">
-                      <Eye className="w-4 h-4 text-green-500" />
-                      <span className="text-lg text-gray-900">{post.views}</span>
-                    </div>
-                    <p className="text-xs text-gray-600">Views</p>
-                  </div>
-                </div>
-
-                <div className="flex space-x-2">
-                  <Button size="sm" variant="outline" className="flex-1">
-                    <Eye className="w-4 h-4 mr-1" />
-                    View Post
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1">
-                    <Edit className="w-4 h-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1">
-                    <Pin className="w-4 h-4 mr-1" />
-                    {post.isPinned ? 'Unpin' : 'Pin'}
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1 text-red-600 hover:text-red-700">
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Delete
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <TabsContent value="published" className="mt-6 space-y-4">
+          {loading ? (
+            <div className="flex items-center gap-2 text-gray-600">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+            </div>
+          ) : error ? (
+            <p className="text-red-600">{error}</p>
+          ) : published.length ? (
+            published.map((p) => <PostRow key={p.id} post={p} />)
+          ) : (
+            <p className="text-gray-500">No published posts.</p>
+          )}
         </TabsContent>
 
-        {/* Draft Posts */}
-        <TabsContent value="drafts" className="space-y-4 mt-6">
-          {draftPosts.map((post) => (
-            <Card key={post.id} className="border-dashed">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Badge className={getCategoryColor(post.category)} variant="secondary">
-                        {getCategoryIcon(post.category)} {post.category}
-                      </Badge>
-                      <Badge variant="outline" className="text-gray-600">
-                        Draft
-                      </Badge>
-                    </div>
-                    <h3 className="text-lg text-gray-900 mb-2">{post.title}</h3>
-                    <p className="text-sm text-gray-600 mb-3">{post.content}</p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <div className="flex items-center space-x-1">
-                        <Avatar className="w-6 h-6">
-                          <AvatarFallback className="bg-blue-500 text-white text-xs">
-                            {post.author.split(' ').map(n => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span>{post.author}</span>
-                      </div>
-                      <span className="flex items-center space-x-1">
-                        <Calendar className="w-4 h-4" />
-                        <span>Created: {post.createdDate}</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
+        <TabsContent value="pending" className="mt-6 space-y-4">
+          {loading ? (
+            <div className="flex items-center gap-2 text-gray-600">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+            </div>
+          ) : error ? (
+            <p className="text-red-600">{error}</p>
+          ) : pending.length ? (
+            pending.map((p) => <PostRow key={p.id} post={p} />)
+          ) : (
+            <p className="text-gray-500">No pending posts.</p>
+          )}
+        </TabsContent>
 
-                <div className="flex space-x-2">
-                  <Button size="sm" className="flex-1">
-                    Publish Now
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1">
-                    <Edit className="w-4 h-4 mr-1" />
-                    Edit Draft
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1 text-red-600 hover:text-red-700">
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Delete
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <TabsContent value="drafts" className="mt-6 space-y-4">
+          {loading ? (
+            <div className="flex items-center gap-2 text-gray-600">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+            </div>
+          ) : error ? (
+            <p className="text-red-600">{error}</p>
+          ) : drafts.length ? (
+            drafts.map((p) => <PostRow key={p.id} post={p} />)
+          ) : (
+            <p className="text-gray-500">No drafts.</p>
+          )}
         </TabsContent>
       </Tabs>
+
+      {/* ===== VIEW POST (DETAIL) ===== */}
+      <Dialog open={!!activePost} onOpenChange={(o) => !o && setActivePost(null)}>
+        <DialogContent className="max-w-3xl">
+          {activePost && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  Post #{activePost.id}
+                  {activePost.is_pinned && (
+                    <Badge className="bg-yellow-100 text-yellow-800 ml-1">
+                      <Pin className="w-3 h-3 mr-1" />
+                      Pinned
+                    </Badge>
+                  )}
+                </DialogTitle>
+                <DialogDescription className="flex items-center gap-2 text-gray-600">
+                  <Avatar className="w-6 h-6">
+                    <AvatarFallback className="bg-blue-500 text-white text-xs">
+                      {(activePost.posted_by_name || activePost.posted_by.username)
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {activePost.posted_by_name || activePost.posted_by.username} •{" "}
+                  {new Date(activePost.posted_at).toLocaleString()} •{" "}
+                  <Badge variant="outline">{activePost.status_display}</Badge>
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <p className="text-gray-900 whitespace-pre-wrap">{activePost.content}</p>
+
+                {/* Attachments */}
+                <div className="space-y-2">
+                  <Label>Attachments</Label>
+                  {activePost.attachments?.length ? (
+                    <ul className="list-disc pl-5 text-sm">
+                      {activePost.attachments.map((a, i) => (
+                        <li key={a.id ?? i}>
+                          {a.url ? (
+                            <a href={a.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                              {a.name || a.url}
+                            </a>
+                          ) : (
+                            <span>{a.name || "Attachment"}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No attachments</p>
+                  )}
+                </div>
+
+                {/* Comments */}
+                <div className="space-y-2">
+                  <Label>Comments ({activePost.total_comments})</Label>
+                  {commentsLoading ? (
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Loading comments…
+                    </div>
+                  ) : comments.length ? (
+                    <ul className="space-y-3">
+                      {comments.map((c) => (
+                        <li key={c.id} className="border rounded p-2">
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <Avatar className="w-6 h-6">
+                              <AvatarFallback className="bg-gray-500 text-white text-xs">
+                                {c.comment_from_name?.slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>{c.comment_from_name}</span>
+                            <span className="text-gray-500">
+                              {new Date(c.comment_at).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="mt-1 whitespace-pre-wrap">{c.content}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">No comments yet.</p>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Write a comment…"
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                    />
+                    <Button onClick={addComment} disabled={!newComment.trim()}>
+                      <Send className="w-4 h-4 mr-1" />
+                      Send
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== EDIT POST ===== */}
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Edit Post</DialogTitle>
+            <DialogDescription>Update the content.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>Content</Label>
+            <Textarea rows={8} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditing(null)}>
+                Cancel
+              </Button>
+              <Button onClick={saveEdit} disabled={!editContent.trim()}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
+};
