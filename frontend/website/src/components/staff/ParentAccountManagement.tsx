@@ -4,7 +4,9 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { UserPlus, Search, MoreHorizontal, MessageCircle, Calendar } from 'lucide-react';
+import { UserPlus, Search, MoreHorizontal, MessageCircle, Calendar, School } from 'lucide-react';
+import { SchoolManagement } from './SchoolManagement';
+import { FamilyManagement } from './FamilyManagement';
 
 interface User {
   id: string;
@@ -30,6 +32,7 @@ interface ParentAccountManagementProps {
 
 export function ParentAccountManagement({ user }: ParentAccountManagementProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeView, setActiveView] = useState<'parents' | 'schools' | 'addFamily'>('parents');
   
   const accounts: ParentAccount[] = [
     {
@@ -72,18 +75,51 @@ export function ParentAccountManagement({ user }: ParentAccountManagementProps) 
     account.childName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  if (activeView === 'addFamily') {
+    return (
+      <FamilyManagement onBack={() => setActiveView('parents')} />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl text-gray-900">Parent Account Management</h2>
-          <p className="text-sm text-gray-600">Manage family accounts and access</p>
+          <h2 className="text-xl text-gray-900">Account Management</h2>
+          <p className="text-sm text-gray-600">Manage families and schools</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700">
-          <UserPlus className="w-4 h-4 mr-2" />
-          Add Family
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant={activeView === 'parents' ? 'default' : 'outline'}
+            onClick={() => setActiveView('parents')}
+            size="sm"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Families
+          </Button>
+          <Button
+            variant={activeView === 'schools' ? 'default' : 'outline'}
+            onClick={() => setActiveView('schools')}
+            size="sm"
+          >
+            <School className="w-4 h-4 mr-2" />
+            Schools
+          </Button>
+        </div>
       </div>
+
+      {activeView === 'parents' ? (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg text-gray-900">Parent Families</h3>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => setActiveView('addFamily')}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add Family
+            </Button>
+          </div>
 
       {/* Search */}
       <Card>
@@ -160,6 +196,10 @@ export function ParentAccountManagement({ user }: ParentAccountManagementProps) 
           </Card>
         ))}
       </div>
+        </div>
+      ) : (
+        <SchoolManagement />
+      )}
     </div>
   );
 }

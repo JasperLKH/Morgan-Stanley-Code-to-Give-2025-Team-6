@@ -4,12 +4,12 @@ import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { GraduationCap, Heart, Users, HelpCircle, Star, Flame, Trophy, MessageCircle } from 'lucide-react';
+import { GraduationCap, Heart, Users, HelpCircle, Star, Flame, Trophy, MessageCircle, BookOpen } from 'lucide-react';
 
 interface User {
   id: string;
   name: string;
-  role: 'parent' | 'teacher' | 'staff';
+  role: 'parent' | 'teacher' | 'staff' | 'student';
   childName?: string;
 }
 
@@ -78,6 +78,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         user = { id: '2', name: 'Miss Wong', role: 'teacher' };
       } else if (username === 'staff1') {
         user = { id: '3', name: 'David Lee', role: 'staff' };
+      } else if (username.startsWith('reach')) {
+        // Handle student accounts (reach00001, reach00002, etc.)
+        user = { id: username, name: '', role: 'student' };
       } else {
         user = { id: '1', name: 'Sarah Chen', role: 'parent', childName: 'Emma Chen' };
       }
@@ -270,6 +273,26 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   setPassword('demo1234');
                 }}
                 className="text-purple-600 border-purple-200 hover:bg-purple-50"
+              >
+                Try
+              </Button>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <BookOpen className="w-4 h-4 text-orange-600" />
+                <div>
+                  <p className="text-sm text-orange-800">Student</p>
+                  <p className="text-xs text-orange-600">username: reach00001</p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setUsername('reach00001');
+                  setPassword('demo');
+                }}
+                className="text-orange-600 border-orange-200 hover:bg-orange-50"
               >
                 Try
               </Button>
