@@ -6,6 +6,7 @@ import { HelpDialog } from './HelpDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { LogOut } from 'lucide-react';
+import { TeacherProvider } from './contexts/TeacherContext';
 
 interface User {
   id: string;
@@ -18,6 +19,14 @@ interface TeacherAppProps {
 }
 
 export function TeacherApp({ user, onLogout }: TeacherAppProps) {
+  return (
+    <TeacherProvider user={user}>
+      <TeacherAppContent onLogout={onLogout} />
+    </TeacherProvider>
+  );
+}
+
+function TeacherAppContent({ onLogout }: { onLogout: () => void }) {
   const teacherName = 'John'; // fixed as per brief
 
   return (

@@ -26,6 +26,8 @@ interface ApiUser {
   role: Role;
   parent_name?: string | null;
   children_name?: string | null;
+  teacher_name?: string | null;
+  staff_name?: string | null;
 }
 
 interface ApiMessage {
@@ -134,7 +136,7 @@ export function StaffChat() {
       type: m.from_user.id === parseInt(currentUser?.id || '0') ? 'sent' : 'received',
       text: m.text || undefined,
       attachmentUrl: m.attachment ? `${API_BASE}${m.attachment}` : undefined,
-      senderName: m.from_user.parent_name || m.from_user.username,
+      senderName: m.from_user.parent_name || m.from_user.teacher_name || m.from_user.staff_name || m.from_user.username,
       timestampISO: m.created_at,
     }));
     setMessages(mapped);
@@ -175,7 +177,7 @@ export function StaffChat() {
       return {
         id: c.id,
         name: c.conversation_type === 'private'
-          ? (other?.parent_name || other?.username)
+          ? (other?.parent_name || other?.teacher_name || other?.staff_name || other?.username)
           : (c.name || `Group #${c.id}`),
         role: (other?.role || 'parent') as 'parent' | 'teacher',
         childName: other?.children_name || undefined,
@@ -198,6 +200,8 @@ export function StaffChat() {
       .filter(u =>
         (u.username || '').toLowerCase().includes(q) ||
         (u.parent_name || '').toLowerCase().includes(q) ||
+        (u.teacher_name || '').toLowerCase().includes(q) ||
+        (u.staff_name || '').toLowerCase().includes(q) ||
         (u.children_name || '').toLowerCase().includes(q) ||
         (u.role || '').toLowerCase().includes(q)
       )
@@ -254,7 +258,7 @@ export function StaffChat() {
     if (!selectedConv) return null;
     const other = selectedConv.participants.find((p) => p.id !== parseInt(currentUser?.id || '0')) || selectedConv.participants[0];
     const displayName = selectedConv.conversation_type === 'private'
-      ? (other?.parent_name || other?.username)
+      ? (other?.parent_name || other?.teacher_name || other?.staff_name || other?.username)
       : (selectedConv.name || `Group #${selectedConv.id}`);
     return { displayName, role: (other?.role || 'parent') as Role, childName: other?.children_name, lastActive: selectedConv.updated_at };
   }, [selectedConv, currentUser]);
@@ -348,7 +352,7 @@ export function StaffChat() {
                     <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
                   ) : (
                     filteredDirectory.map(u => {
-                      const display = u.parent_name || u.username;
+                      const display = u.parent_name || u.teacher_name || u.staff_name || u.username;
                       const badge =
                         u.role === 'parent' ? <Heart className="w-3 h-3 text-blue-500" /> :
                         u.role === 'teacher' ? <GraduationCap className="w-3 h-3 text-green-500" /> :
