@@ -11,7 +11,7 @@ class UserBasicSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'role', 'parent_name', 'children_name', 'school']
+        fields = ['id', 'username', 'role', 'parent_name', 'children_name', 'staff_name', 'teacher_name', 'school']
     
     def get_school(self, obj):
         """Return school name or None if no school is assigned"""
