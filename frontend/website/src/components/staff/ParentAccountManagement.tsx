@@ -14,6 +14,14 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "../ui/dialog"; 
+// for deactivating accounts
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+
 
 
 interface User {
@@ -67,7 +75,6 @@ export function ParentAccountManagement({ user }: ParentAccountManagementProps) 
     if (!res.ok) {
       throw new Error('Failed to create parent');
     }
-
     // refresh parent list
     const created = await res.json();
     setAccounts((prev) => [...prev, created]); // depends on backend response shape
@@ -79,6 +86,59 @@ export function ParentAccountManagement({ user }: ParentAccountManagementProps) 
   }
 };
 
+// Add new function
+const handleActivate = async (userId: number) => {
+  try {
+    const res = await fetch('http://localhost:8000/account/users/activate/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ user_id: userId }),
+    });
+
+    if (!res.ok) {
+      throw new Error('Failed to activate user');
+    }
+
+    // update local state (set is_active to true)
+    setAccounts((prev) =>
+      prev.map((u) =>
+        u.id === userId ? { ...u, is_active: true } : u
+      )
+    );
+  } catch (err) {
+    console.error(err);
+    alert('Error activating user');
+  }
+};
+
+
+const handleDeactivate = async (userId: number) => {
+  try {
+    const res = await fetch('http://localhost:8000/account/users/deactivate/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ user_id: userId }),
+    });
+
+    if (!res.ok) {
+      throw new Error('Failed to deactivate user');
+    }
+
+    // update local state (set is_active to false)
+    setAccounts((prev) =>
+      prev.map((u) =>
+        u.id === userId ? { ...u, is_active: false } : u
+      )
+    );
+  } catch (err) {
+    console.error(err);
+    alert('Error deactivating user');
+  }
+};  
 
 
   useEffect(() => {
@@ -211,9 +271,24 @@ export function ParentAccountManagement({ user }: ParentAccountManagementProps) 
                       <MessageCircle className="w-4 h-4 mr-1" />
                       Message
                     </Button>
-                    <Button size="sm" variant="ghost">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="ghost">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {account.is_active ? (
+                          <DropdownMenuItem onClick={() => handleDeactivate(account.id)}>
+                            Deactivate
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => handleActivate(account.id)}>
+                            Activate
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                  </DropdownMenu>
                   </div>
                 </div>
               </div>
