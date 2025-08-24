@@ -1,92 +1,95 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Calendar, Upload, Star, Clock, CheckCircle, AlertCircle, Camera, Loader2 } from 'lucide-react';
+import { apiService } from '../../services/api';
 import { useParentContext } from '../contexts/ParentContext';
-import { Calendar, Upload, Download, Star, Clock, CheckCircle, AlertCircle, Camera, FileText } from 'lucide-react';
 
 interface Assignment {
-  id: string;
+  id: number;
   title: string;
-  titleZh: string;
   subject: string;
-  subjectZh: string;
-  dueDate: string;
-  status: 'pending' | 'submitted' | 'graded';
+  due_date: string;
+  status?: 'pending' | 'submitted' | 'graded';
   points: number;
+  description?: string;
   feedback?: string;
-  feedbackZh?: string;
   grade?: string;
-  submittedAt?: string;
+  submitted_at?: string;
+  assigned_to?: number[];
 }
 
 export function AssignmentsPage() {
-  const { state, t } = useParentContext();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [assignments] = useState<Assignment[]>([
-    {
-      id: '1',
-      title: 'Math Worksheet - Addition',
-      titleZh: '數學工作表 - 加法',
-      subject: 'Mathematics',
-      subjectZh: '數學',
-      dueDate: '2024-08-23',
-      status: 'pending',
-      points: 5,
-    },
-    {
-      id: '2',
-      title: 'Reading Comprehension',
-      titleZh: '閱讀理解',
-      subject: 'English',
-      subjectZh: '英語',
-      dueDate: '2024-08-22',
-      status: 'submitted',
-      points: 3,
-      submittedAt: '2024-08-21',
-    },
-    {
-      id: '3',
-      title: 'Color Recognition Activity',
-      titleZh: '顏色識別活動',
-      subject: 'Art',
-      subjectZh: '藝術',
-      dueDate: '2024-08-20',
-      status: 'graded',
-      points: 4,
-      grade: 'Excellent',
-      feedback: 'Great work on identifying all the colors! Emma showed excellent attention to detail.',
-      feedbackZh: '在識別所有顏色方面做得很好！Emma表現出極佳的注意力。',
-      submittedAt: '2024-08-19',
-    },
-    {
-      id: '4',
-      title: 'Number Writing Practice',
-      titleZh: '數字書寫練習',
-      subject: 'Mathematics',
-      subjectZh: '數學',
-      dueDate: '2024-08-18',
-      status: 'graded',
-      points: 3,
-      grade: 'Good',
-      feedback: 'Numbers 1-5 are written well. Keep practicing numbers 6-10 for better formation.',
-      feedbackZh: '數字1-5寫得很好。繼續練習數字6-10以更好地形成。',
-      submittedAt: '2024-08-17',
-    },
-  ]);
+  const { state } = useParentContext();
+  const currentUser = state.user;
+  
+  // Log user ID for debugging
+  console.log('AssignmentsPage - Current User ID:', currentUser?.id);
+  
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState<number | null>(null);
 
-  const pendingAssignments = assignments.filter(a => a.status === 'pending');
+  useEffect(() => {
+    const fetchAssignments = async () => {
+      if (!currentUser?.id) return;
+      
+      setLoading(true);
+      try {
+        const response = await apiService.getUserAssignments(parseInt(currentUser.id));
+        if (response.success && response.data) {
+          setAssignments(response.data as Assignment[]);
+        }
+      } catch (error) {
+        console.error('Error fetching assignments:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssignments();
+  }, [currentUser?.id]);
+
+  const pendingAssignments = assignments.filter(a => a.status === 'pending' || !a.status);
   const submittedAssignments = assignments.filter(a => a.status === 'submitted');
   const gradedAssignments = assignments.filter(a => a.status === 'graded');
 
-  const handleFileUpload = (assignmentId: string) => {
-    // In real app, this would upload to API
-    console.log('Uploading file for assignment:', assignmentId);
+  const handleFileUpload = async (assignmentId: number, file?: File) => {
+    setSubmitting(assignmentId);
+    try {
+      const formData = new FormData();
+      if (file) {
+        formData.append('file', file);
+      }
+      
+      const response = await apiService.submitAssignment(assignmentId, formData);
+      if (response.success) {
+        // Refresh assignments after submission
+        if (currentUser?.id) {
+          const updatedResponse = await apiService.getUserAssignments(parseInt(currentUser.id));
+          if (updatedResponse.success && updatedResponse.data) {
+            setAssignments(updatedResponse.data as Assignment[]);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    } finally {
+      setSubmitting(null);
+    }
   };
 
-  const getStatusIcon = (status: string) => {
+  const handleTakePhoto = (assignmentId: number) => {
+    // In a real app, this would open camera or photo picker
+    console.log('Taking photo for assignment:', assignmentId);
+    // For now, just simulate submission
+    handleFileUpload(assignmentId);
+  };
+
+  const getStatusIcon = (status?: string) => {
     switch (status) {
       case 'pending':
         return <Clock className="w-4 h-4 text-orange-500" />;
@@ -99,25 +102,36 @@ export function AssignmentsPage() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status?: string) => {
     switch (status) {
       case 'pending':
-        return <Badge variant="secondary" className="bg-orange-100 text-orange-700">{t('status.pending', 'Pending')}</Badge>;
+        return <Badge variant="secondary" className="bg-orange-100 text-orange-700">Pending</Badge>;
       case 'submitted':
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-700">{t('status.submitted', 'Submitted')}</Badge>;
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-700">Submitted</Badge>;
       case 'graded':
-        return <Badge variant="secondary" className="bg-green-100 text-green-700">{t('status.graded', 'Graded')}</Badge>;
+        return <Badge variant="secondary" className="bg-green-100 text-green-700">Graded</Badge>;
       default:
-        return <Badge variant="secondary">{t('status.unknown', 'Unknown')}</Badge>;
+        return <Badge variant="secondary">Unknown</Badge>;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="p-4 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+        <span className="ml-2">Loading assignments...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4">
       {/* Header */}
       <div>
-        <h2 className="text-xl text-gray-900">{t('assignments.title', 'Assignments')}</h2>
-        <p className="text-sm text-gray-600">{state.user.childName}{t('assignments.learningTasks', "'s learning tasks")}</p>
+        <h2 className="text-xl text-gray-900">Assignments</h2>
+        <p className="text-sm text-gray-600">
+          {currentUser?.childName || 'Your child'}'s learning tasks
+        </p>
       </div>
 
       {/* Weekly Progress */}
@@ -125,21 +139,28 @@ export function AssignmentsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center space-x-2">
             <Calendar className="w-5 h-5 text-blue-600" />
-            <span>{t('assignments.weekProgress', "This Week's Progress")}</span>
+            <span>This Week's Progress</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">{t('assignments.completedTasks', 'Completed Tasks')}</span>
-              <span className="text-sm text-gray-900">3 {t('assignments.of', 'of')} 4</span>
+              <span className="text-sm text-gray-600">Completed Tasks</span>
+              <span className="text-sm text-gray-900">
+                {gradedAssignments.length} of {assignments.length}
+              </span>
             </div>
-            <Progress value={75} className="h-3" />
+            <Progress 
+              value={assignments.length > 0 ? (gradedAssignments.length / assignments.length) * 100 : 0} 
+              className="h-3" 
+            />
             <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>1 {t('assignments.taskRemaining', 'task remaining')}</span>
+              <span>{pendingAssignments.length} tasks remaining</span>
               <div className="flex items-center space-x-1">
                 <Star className="w-3 h-3 text-yellow-500" />
-                <span>+12 {t('assignments.pointsEarned', 'points earned')}</span>
+                <span>
+                  +{gradedAssignments.reduce((sum, a) => sum + a.points, 0)} points earned
+                </span>
               </div>
             </div>
           </div>
@@ -150,137 +171,192 @@ export function AssignmentsPage() {
       <Tabs defaultValue="pending" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="pending">
-            {t('assignments.pending', 'Pending')} ({pendingAssignments.length})
+            Pending ({pendingAssignments.length})
           </TabsTrigger>
           <TabsTrigger value="submitted">
-            {t('assignments.submitted', 'Submitted')} ({submittedAssignments.length})
+            Submitted ({submittedAssignments.length})
           </TabsTrigger>
           <TabsTrigger value="graded">
-            {t('assignments.graded', 'Graded')} ({gradedAssignments.length})
+            Graded ({gradedAssignments.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="space-y-4">
-          {pendingAssignments.map((assignment) => (
-            <Card key={assignment.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-start space-x-3">
-                    {getStatusIcon(assignment.status)}
-                    <div>
-                      <h3 className="text-sm text-gray-900">
-                        {state.language === 'zh' ? assignment.titleZh : assignment.title}
-                      </h3>
-                      <p className="text-xs text-gray-600">
-                        {state.language === 'zh' ? assignment.subjectZh : assignment.subject}
-                      </p>
-                    </div>
-                  </div>
-                  {getStatusBadge(assignment.status)}
-                </div>
-                
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-4 text-xs text-gray-500">
-                    <span>{t('assignments.due', 'Due')}: {new Date(assignment.dueDate).toLocaleDateString()}</span>
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-3 h-3 text-yellow-500" />
-                      <span>+{assignment.points} {t('assignments.points', 'points')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex space-x-2">
-                  <Button size="sm" className="flex-1 bg-primary hover:bg-primary/90">
-                    <Camera className="w-4 h-4 mr-1" />
-                    {t('assignments.takePhoto', 'Take Photo')}
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1">
-                    <Upload className="w-4 h-4 mr-1" />
-                    {t('assignments.uploadFile', 'Upload File')}
-                  </Button>
-                </div>
+          {pendingAssignments.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                <p className="text-gray-500">No pending assignments</p>
+                <p className="text-sm text-gray-400">All caught up!</p>
               </CardContent>
             </Card>
-          ))}
+          ) : (
+            pendingAssignments.map((assignment) => (
+              <Card key={assignment.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start space-x-3">
+                      {getStatusIcon(assignment.status)}
+                      <div>
+                        <h3 className="text-sm text-gray-900">{assignment.title}</h3>
+                        <p className="text-xs text-gray-600">{assignment.subject}</p>
+                        {assignment.description && (
+                          <p className="text-xs text-gray-500 mt-1">{assignment.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    {getStatusBadge(assignment.status)}
+                  </div>
+                  
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-4 text-xs text-gray-500">
+                      <span>Due: {new Date(assignment.due_date).toLocaleDateString()}</span>
+                      <div className="flex items-center space-x-1">
+                        <Star className="w-3 h-3 text-yellow-500" />
+                        <span>+{assignment.points} points</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 bg-primary hover:bg-primary/90"
+                      onClick={() => handleTakePhoto(assignment.id)}
+                      disabled={submitting === assignment.id}
+                    >
+                      {submitting === assignment.id ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <Camera className="w-4 h-4 mr-1" />
+                      )}
+                      Take Photo
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*,application/pdf';
+                        input.onchange = (e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0];
+                          if (file) {
+                            handleFileUpload(assignment.id, file);
+                          }
+                        };
+                        input.click();
+                      }}
+                      disabled={submitting === assignment.id}
+                    >
+                      {submitting === assignment.id ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4 mr-1" />
+                      )}
+                      Upload File
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </TabsContent>
 
         <TabsContent value="submitted" className="space-y-4">
-          {submittedAssignments.map((assignment) => (
-            <Card key={assignment.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-start space-x-3">
-                    {getStatusIcon(assignment.status)}
-                    <div>
-                      <h3 className="text-sm text-gray-900">
-                        {state.language === 'zh' ? assignment.titleZh : assignment.title}
-                      </h3>
-                      <p className="text-xs text-gray-600">
-                        {state.language === 'zh' ? assignment.subjectZh : assignment.subject}
-                      </p>
-                    </div>
-                  </div>
-                  {getStatusBadge(assignment.status)}
-                </div>
-                
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                  <span>{t('assignments.submitted', 'Submitted')}: {assignment.submittedAt ? new Date(assignment.submittedAt).toLocaleDateString() : 'N/A'}</span>
-                  <div className="flex items-center space-x-1">
-                    <Star className="w-3 h-3 text-yellow-500" />
-                    <span>+{assignment.points} {t('assignments.points', 'points')}</span>
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 rounded-lg p-3 text-center">
-                  <p className="text-sm text-blue-800">
-                    {t('assignments.waitingFeedback', 'Waiting for REACH teacher feedback')}
-                  </p>
-                </div>
+          {submittedAssignments.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Clock className="w-12 h-12 text-orange-500 mx-auto mb-3" />
+                <p className="text-gray-500">No submitted assignments</p>
+                <p className="text-sm text-gray-400">Complete pending tasks to see them here</p>
               </CardContent>
             </Card>
-          ))}
+          ) : (
+            submittedAssignments.map((assignment) => (
+              <Card key={assignment.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start space-x-3">
+                      {getStatusIcon(assignment.status)}
+                      <div>
+                        <h3 className="text-sm text-gray-900">{assignment.title}</h3>
+                        <p className="text-xs text-gray-600">{assignment.subject}</p>
+                      </div>
+                    </div>
+                    {getStatusBadge(assignment.status)}
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                    <span>
+                      Submitted: {assignment.submitted_at ? new Date(assignment.submitted_at).toLocaleDateString() : 'N/A'}
+                    </span>
+                    <div className="flex items-center space-x-1">
+                      <Star className="w-3 h-3 text-yellow-500" />
+                      <span>+{assignment.points} points</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 rounded-lg p-3 text-center">
+                    <p className="text-sm text-blue-800">
+                      Waiting for REACH teacher feedback
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </TabsContent>
 
         <TabsContent value="graded" className="space-y-4">
-          {gradedAssignments.map((assignment) => (
-            <Card key={assignment.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-start space-x-3">
-                    {getStatusIcon(assignment.status)}
-                    <div>
-                      <h3 className="text-sm text-gray-900">
-                        {state.language === 'zh' ? assignment.titleZh : assignment.title}
-                      </h3>
-                      <p className="text-xs text-gray-600">
-                        {state.language === 'zh' ? assignment.subjectZh : assignment.subject}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {getStatusBadge(assignment.status)}
-                    <Badge className="bg-green-500 text-white">{assignment.grade}</Badge>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                  <span>{t('assignments.submitted', 'Submitted')}: {assignment.submittedAt ? new Date(assignment.submittedAt).toLocaleDateString() : 'N/A'}</span>
-                  <div className="flex items-center space-x-1">
-                    <Star className="w-3 h-3 text-yellow-500" />
-                    <span>+{assignment.points} {t('assignments.pointsEarned', 'points earned')}</span>
-                  </div>
-                </div>
-
-                {assignment.feedback && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <p className="text-sm text-green-800">
-                      {state.language === 'zh' ? assignment.feedbackZh : assignment.feedback}
-                    </p>
-                  </div>
-                )}
+          {gradedAssignments.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Star className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
+                <p className="text-gray-500">No graded assignments yet</p>
+                <p className="text-sm text-gray-400">Complete and submit assignments to see grades</p>
               </CardContent>
             </Card>
-          ))}
+          ) : (
+            gradedAssignments.map((assignment) => (
+              <Card key={assignment.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start space-x-3">
+                      {getStatusIcon(assignment.status)}
+                      <div>
+                        <h3 className="text-sm text-gray-900">{assignment.title}</h3>
+                        <p className="text-xs text-gray-600">{assignment.subject}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {getStatusBadge(assignment.status)}
+                      {assignment.grade && (
+                        <Badge className="bg-green-500 text-white">{assignment.grade}</Badge>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                    <span>
+                      Submitted: {assignment.submitted_at ? new Date(assignment.submitted_at).toLocaleDateString() : 'N/A'}
+                    </span>
+                    <div className="flex items-center space-x-1">
+                      <Star className="w-3 h-3 text-yellow-500" />
+                      <span>+{assignment.points} points earned</span>
+                    </div>
+                  </div>
+
+                  {assignment.feedback && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-sm text-green-800">{assignment.feedback}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          )}
         </TabsContent>
       </Tabs>
     </div>

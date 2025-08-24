@@ -5,6 +5,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
 import { BookOpen, GraduationCap, Star, TrendingUp, Users } from 'lucide-react';
+import { useTeacherContext } from '../contexts/TeacherContext';
 
 type Status = 'excellent' | 'good' | 'needs_attention';
 
@@ -20,6 +21,12 @@ interface Student {
 }
 
 export function TeacherStudents() {
+  const { state } = useTeacherContext();
+  const currentUser = state.user;
+  
+  // Log user ID for debugging
+  console.log('TeacherStudents - Current User ID:', currentUser?.id);
+  
   const [students, setStudents] = useState<Student[]>([]);
 
   useEffect(() => {

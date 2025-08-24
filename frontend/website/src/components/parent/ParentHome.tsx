@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -16,27 +16,36 @@ import {
   Trophy,
   Ticket,
   Coffee,
-  ShoppingBag
+  ShoppingBag,
+  Loader2
 } from 'lucide-react';
+import { apiService } from '../../services/api';
+import { useParentContext } from '../contexts/ParentContext';
+
+interface Assignment {
+  id: number;
+  title: string;
+  subject: string;
+  due_date: string;
+  points: number;
+  description: string;
+  status?: 'pending' | 'submitted' | 'graded';
+  assigned_to?: number[];
+}
 
 interface User {
   id: string;
   name: string;
   role: string;
-  childName?: string;
+  children_name?: string;
+  parent_name?: string;
+  points?: number;
+  weekly_points?: number;
+  streaks?: number;
 }
 
 interface ParentHomeProps {
   user: User;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  type: 'reading' | 'math' | 'writing' | 'art';
-  completed: boolean;
-  points: number;
-  description: string;
 }
 
 interface Reward {
@@ -50,42 +59,51 @@ interface Reward {
 }
 
 export function ParentHome({ user }: ParentHomeProps) {
+  const { state } = useParentContext();
+  const currentUser = state.user;
+  const dashboard = state.dashboard;
+  
+  // Log user ID for debugging
+  console.log('ParentHome - Current User ID:', currentUser?.id);
+  
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
 
-  const todaysTasks: Task[] = [
-    {
-      id: '1',
-      title: 'Read "The Little Red Hen"',
-      type: 'reading',
-      completed: completedTasks.includes('1'),
-      points: 10,
-      description: 'Read the story and discuss with your child'
-    },
-    {
-      id: '2',
-      title: 'Practice Writing Numbers 1-5',
-      type: 'writing',
-      completed: completedTasks.includes('2'),
-      points: 15,
-      description: 'Help your child trace and write numbers'
-    },
-    {
-      id: '3',
-      title: 'Counting with Toys',
-      type: 'math',
-      completed: completedTasks.includes('3'),
-      points: 10,
-      description: 'Count household items together'
-    },
-    {
-      id: '4',
-      title: 'Draw a Family Picture',
-      type: 'art',
-      completed: completedTasks.includes('4'),
-      points: 12,
-      description: 'Create art together and talk about family'
-    }
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!currentUser?.id) return;
+      
+      setLoading(true);
+      try {
+        // Fetch assignments
+        const assignmentResponse = await apiService.getUserAssignments(parseInt(currentUser.id));
+        if (assignmentResponse.success && assignmentResponse.data) {
+          setAssignments(assignmentResponse.data as Assignment[]);
+        }
+
+        // Fetch user data to get latest points and streaks
+        const userResponse = await apiService.getUserById(currentUser.id);
+        if (userResponse.success && userResponse.data) {
+          // Update user context if needed
+          // You might want to update the user context here
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [currentUser?.id]);
+
+  // Get today's pending assignments
+  const todaysTasks = assignments.filter(assignment => {
+    const dueDate = new Date(assignment.due_date);
+    const today = new Date();
+    return dueDate.toDateString() === today.toDateString() && !completedTasks.includes(assignment.id.toString());
+  });
 
   const rewards: Reward[] = [
     {
@@ -126,26 +144,34 @@ export function ParentHome({ user }: ParentHomeProps) {
     }
   ];
 
-  const currentPoints = 185;
-  const currentStreak = 5;
+  const currentPoints = dashboard?.totalPoints || 0;
+  const currentStreak = dashboard?.currentStreak || 0;
   const completedToday = completedTasks.length;
   const totalToday = todaysTasks.length;
   const todaysPoints = todaysTasks
-    .filter(task => completedTasks.includes(task.id))
+    .filter(task => completedTasks.includes(task.id.toString()))
     .reduce((sum, task) => sum + task.points, 0);
 
-  const completeTask = (taskId: string) => {
-    setCompletedTasks(prev => [...prev, taskId]);
+  const completeTask = async (assignmentId: string) => {
+    try {
+      // In a real implementation, you would submit the assignment here
+      // For now, we'll just mark it as completed locally
+      setCompletedTasks(prev => [...prev, assignmentId]);
+      
+      // You could also call the API to submit the assignment
+      // const response = await apiService.submitAssignment(parseInt(assignmentId), formData);
+    } catch (error) {
+      console.error('Error completing task:', error);
+    }
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'reading': return 'bg-blue-100 text-blue-800';
-      case 'math': return 'bg-green-100 text-green-800';
-      case 'writing': return 'bg-purple-100 text-purple-800';
-      case 'art': return 'bg-pink-100 text-pink-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const getTypeColor = (subject: string) => {
+    const lowerSubject = subject.toLowerCase();
+    if (lowerSubject.includes('reading') || lowerSubject.includes('english')) return 'bg-blue-100 text-blue-800';
+    if (lowerSubject.includes('math')) return 'bg-green-100 text-green-800';
+    if (lowerSubject.includes('writing')) return 'bg-purple-100 text-purple-800';
+    if (lowerSubject.includes('art') || lowerSubject.includes('creative')) return 'bg-pink-100 text-pink-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   const getCategoryIcon = (category: string) => {
@@ -165,7 +191,7 @@ export function ParentHome({ user }: ParentHomeProps) {
           Good morning, {user.name}! 👋
         </h1>
         <p className="text-gray-600">
-          Let's help {user.childName} learn and grow today
+          Let's help {currentUser?.childName || 'your child'} learn and grow today
         </p>
       </div>
 
@@ -216,44 +242,63 @@ export function ParentHome({ user }: ParentHomeProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {todaysTasks.map((task) => (
-            <div
-              key={task.id}
-              className={`p-4 rounded-lg border transition-colors ${
-                task.completed 
-                  ? 'bg-green-50 border-green-200' 
-                  : 'bg-white border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <Badge className={getTypeColor(task.type)} variant="secondary">
-                      {task.type}
-                    </Badge>
-                    <span className="text-sm text-gray-600">+{task.points} points</span>
-                  </div>
-                  <h4 className="text-gray-900 mb-1">{task.title}</h4>
-                  <p className="text-sm text-gray-600">{task.description}</p>
-                </div>
-                <div className="ml-4">
-                  {task.completed ? (
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-5 h-5 text-white" />
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => completeTask(task.id)}
-                      className="bg-blue-500 hover:bg-blue-600"
-                    >
-                      Mark Done
-                    </Button>
-                  )}
-                </div>
-              </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              <span className="ml-2 text-gray-600">Loading assignments...</span>
             </div>
-          ))}
+          ) : todaysTasks.length === 0 ? (
+            <div className="text-center py-8">
+              <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No assignments for today</p>
+              <p className="text-sm text-gray-400">Check back later for new tasks!</p>
+            </div>
+          ) : (
+            todaysTasks.map((task) => {
+              const isCompleted = completedTasks.includes(task.id.toString());
+              return (
+                <div
+                  key={task.id}
+                  className={`p-4 rounded-lg border transition-colors ${
+                    isCompleted 
+                      ? 'bg-green-50 border-green-200' 
+                      : 'bg-white border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <Badge className={getTypeColor(task.subject)} variant="secondary">
+                          {task.subject}
+                        </Badge>
+                        <span className="text-sm text-gray-600">+{task.points} points</span>
+                      </div>
+                      <h4 className="text-gray-900 mb-1">{task.title}</h4>
+                      <p className="text-sm text-gray-600">{task.description}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Due: {new Date(task.due_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="ml-4">
+                      {isCompleted ? (
+                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                          <CheckCircle className="w-5 h-5 text-white" />
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => completeTask(task.id.toString())}
+                          className="bg-blue-500 hover:bg-blue-600"
+                        >
+                          Mark Done
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </CardContent>
       </Card>
 

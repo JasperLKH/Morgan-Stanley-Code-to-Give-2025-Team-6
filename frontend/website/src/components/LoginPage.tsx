@@ -85,6 +85,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         user = { id: '1', name: 'Sarah Chen', role: 'parent', childName: 'Emma Chen' };
       }
       
+      console.log('LoginPage - User logged in:', user);
       onLogin(user);
       setLoading(false);
     }, 1000);
@@ -222,18 +223,38 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 <Heart className="w-4 h-4 text-blue-600" />
                 <div>
                   <p className="text-sm text-blue-800">Parent</p>
-                  <p className="text-xs text-blue-600">username: parent1</p>
+                  <p className="text-xs text-blue-600">username: reach19897</p>
                 </div>
               </div>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => {
-                  setUsername('parent1');
-                  setPassword('demo1234');
+                  setUsername('reach19897');
+                  setPassword('JbDbZcE2');
                 }}
                 className="text-blue-600 border-blue-200 hover:bg-blue-50"
               >
+                {/* Try
+              </Button>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <Heart className="w-4 h-4 text-blue-600" />
+                <div>
+                  <p className="text-sm text-blue-800">Parent 2 (not graded assignment)</p>
+                  <p className="text-xs text-blue-600">username: reach07998</p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setUsername('reach07998');
+                  setPassword('6z0GSYPL');
+                }}
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              > */}
                 Try
               </Button>
             </div>
@@ -242,15 +263,15 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 <GraduationCap className="w-4 h-4 text-green-600" />
                 <div>
                   <p className="text-sm text-green-800">Teacher</p>
-                  <p className="text-xs text-green-600">username: teacher1</p>
+                  <p className="text-xs text-green-600">username: reach10311</p>
                 </div>
               </div>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => {
-                  setUsername('teacher1');
-                  setPassword('demo1234');
+                  setUsername('reach10311');
+                  setPassword('DzzuLHrj');
                 }}
                 className="text-green-600 border-green-200 hover:bg-green-50"
               >
@@ -262,37 +283,17 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 <Users className="w-4 h-4 text-purple-600" />
                 <div>
                   <p className="text-sm text-purple-800">Staff</p>
-                  <p className="text-xs text-purple-600">username: staff1</p>
+                  <p className="text-xs text-purple-600">username: reachstaff1</p>
                 </div>
               </div>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => {
-                  setUsername('staff1');
-                  setPassword('demo1234');
+                  setUsername('reachstaff1');
+                  setPassword('Cxzdsa321');
                 }}
                 className="text-purple-600 border-purple-200 hover:bg-purple-50"
-              >
-                Try
-              </Button>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <BookOpen className="w-4 h-4 text-orange-600" />
-                <div>
-                  <p className="text-sm text-orange-800">Student</p>
-                  <p className="text-xs text-orange-600">username: reach00001</p>
-                </div>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  setUsername('reach00001');
-                  setPassword('demo');
-                }}
-                className="text-orange-600 border-orange-200 hover:bg-orange-50"
               >
                 Try
               </Button>

@@ -1,565 +1,455 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Badge } from '../ui/badge';
-import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { useParentContext } from '../contexts/ParentContext';
-import { CommunityLeaderboardFull } from './CommunityLeaderboardFull';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { 
-  Users, 
   MessageSquare, 
   Heart, 
-  Share2, 
-  Plus,
-  Image,
-  Video,
-  Star,
-  Pin,
-  Calendar,
-  ThumbsUp,
-  MessageCircle,
-  Trophy,
-  Sparkles,
-  Camera,
-  Crown,
-  Medal,
-  Award
+  Plus, 
+  Search, 
+  Filter,
+  Loader2,
+  Clock,
+  User
 } from 'lucide-react';
+import { apiService } from '../../services/api';
+import { useParentContext } from "../contexts/ParentContext";
 
 interface ForumPost {
-  id: string;
-  author: string;
-  authorZh?: string;
-  avatar: string;
-  role: 'parent' | 'teacher' | 'staff';
+  id: number;
   title: string;
-  titleZh?: string;
   content: string;
-  contentZh?: string;
-  timestamp: string;
-  likes: number;
-  comments: number;
-  tags: string[];
-  pinned?: boolean;
-  hasImage?: boolean;
-  hasVideo?: boolean;
+  author: {
+    id: number;
+    username: string;
+    name: string;
+  };
+  created_at: string;
+  category?: string;
+  likes_count?: number;
+  comments_count?: number;
+  liked_by_user?: boolean;
 }
 
-interface CommunityStats {
-  totalFamilies: number;
-  postsThisWeek: number;
-  activeToday: number;
-}
-
-interface LeaderboardEntry {
-  id: string;
-  parentName: string;
-  childName: string;
-  points: number;
-  avatar: string;
-  rank: number;
-  weeklyPoints: number;
-  streak: number;
+interface Comment {
+  id: number;
+  content: string;
+  author: {
+    id: number;
+    username: string;
+    name: string;
+  };
+  created_at: string;
 }
 
 export function CommunityForumPage() {
-  const { state, t } = useParentContext();
-  const [selectedTab, setSelectedTab] = useState<'recent' | 'popular' | 'announcements'>('recent');
-  const [showNewPost, setShowNewPost] = useState(false);
+  const { state } = useParentContext();
+  const currentUser = state.user;
+  
+  // Log user ID for debugging
+  console.log('CommunityForumPage - Current User ID:', currentUser?.id);
+  
+  const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [comments, setComments] = useState<Record<number, Comment[]>>({});
+  const [loading, setLoading] = useState(true);
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostContent, setNewPostContent] = useState('');
-  const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
+  const [newPostCategory, setNewPostCategory] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [showNewPostDialog, setShowNewPostDialog] = useState(false);
+  const [expandedPost, setExpandedPost] = useState<number | null>(null);
 
-  const communityStats: CommunityStats = {
-    totalFamilies: 156,
-    postsThisWeek: 23,
-    activeToday: 12
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const fetchPosts = async () => {
+    setLoading(true);
+    try {
+      const response = await apiService.getForumPosts();
+      if (response.success && response.data && Array.isArray(response.data)) {
+        setPosts(response.data as ForumPost[]);
+      } else {
+        // Use mock data if API fails or data is not an array
+        console.log('API failed or returned non-array data, using mock data');
+        setPosts(mockPosts);
+      }
+    } catch (error) {
+      console.error('Error fetching forum posts:', error);
+      // Use mock data as fallback
+      setPosts(mockPosts);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Weekly leaderboard data
-  const weeklyLeaderboard: LeaderboardEntry[] = [
+  // Mock data for development
+  const mockPosts: ForumPost[] = [
     {
-      id: '1',
-      parentName: 'Sarah Chen',
-      childName: 'Emma',
-      points: 285,
-      avatar: 'SC',
-      rank: 1,
-      weeklyPoints: 125,
-      streak: 7
+      id: 1,
+      title: "Welcome to the REACH Community Forum!",
+      content: "This is a space for parents and teachers to connect, share experiences, and support each other in our children's learning journey.",
+      author: {
+        id: 1,
+        username: "admin",
+        name: "REACH Admin"
+      },
+      created_at: new Date().toISOString(),
+      category: "general",
+      likes_count: 5,
+      comments_count: 3,
+      liked_by_user: false
     },
     {
-      id: '2',
-      parentName: 'Lisa Wong',
-      childName: 'Alex',
-      points: 267,
-      avatar: 'LW',
-      rank: 2,
-      weeklyPoints: 118,
-      streak: 5
+      id: 2,
+      title: "Tips for Helping Kids with Homework",
+      content: "Here are some effective strategies I've found helpful when my child struggles with homework assignments...",
+      author: {
+        id: 2,
+        username: "parent_sarah",
+        name: "Sarah Chen"
+      },
+      created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+      category: "tips",
+      likes_count: 12,
+      comments_count: 8,
+      liked_by_user: true
     },
     {
-      id: '3',
-      parentName: 'David Liu',
-      childName: 'Marcus',
-      points: 251,
-      avatar: 'DL',
-      rank: 3,
-      weeklyPoints: 112,
-      streak: 6
-    },
-    {
-      id: '4',
-      parentName: 'Maria Garcia',
-      childName: 'Sofia',
-      points: 235,
-      avatar: 'MG',
-      rank: 4,
-      weeklyPoints: 98,
-      streak: 4
-    },
-    {
-      id: '5',
-      parentName: 'James Johnson',
-      childName: 'Lily',
-      points: 220,
-      avatar: 'JJ',
-      rank: 5,
-      weeklyPoints: 89,
-      streak: 3
+      id: 3,
+      title: "Celebrating Small Wins",
+      content: "My daughter just completed her first week of assignments! So proud of her progress. What achievements are you celebrating?",
+      author: {
+        id: 3,
+        username: "proud_parent",
+        name: "Mike Johnson"
+      },
+      created_at: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+      category: "achievements",
+      likes_count: 18,
+      comments_count: 15,
+      liked_by_user: false
     }
   ];
 
-  const forumPosts: ForumPost[] = [
-    {
-      id: '1',
-      author: 'Sarah Chen',
-      authorZh: '陳莎拉',
-      avatar: 'SC',
-      role: 'parent',
-      title: 'Emma\'s First Reading Milestone! 🎉',
-      titleZh: 'Emma的第一個閱讀里程碑！🎉',
-      content: 'So excited to share that Emma just read her first complete book today! The REACH reading program has been amazing. Any book recommendations for next steps?',
-      contentZh: '很興奮地分享Emma今天讀完了她的第一本完整的書！REACH閱讀計劃非常棒。有什麼下一步的書推薦嗎？',
-      timestamp: '2024-08-23T10:30:00Z',
-      likes: 12,
-      comments: 8,
-      tags: ['reading', 'milestone', 'celebration'],
-      hasImage: true
-    },
-    {
-      id: '2',
-      author: 'Ms. Wong',
-      authorZh: '黃老師',
-      avatar: 'MW',
-      role: 'teacher',
-      title: 'Weekly Math Tips for Parents',
-      titleZh: '給家長的每週數學小貼士',
-      content: 'Here are some fun ways to practice counting at home: use snacks, toys, or even stairs! Making math part of daily activities helps children learn naturally.',
-      contentZh: '以下是在家練習數數的有趣方法：使用零食、玩具，甚至樓梯！讓數學成為日常活動的一部分，幫助孩子自然地學習。',
-      timestamp: '2024-08-23T09:15:00Z',
-      likes: 18,
-      comments: 5,
-      tags: ['math', 'tips', 'home-learning'],
-      pinned: true
-    },
-    {
-      id: '3',
-      author: 'David Liu',
-      authorZh: '劉大衛',
-      avatar: 'DL',
-      role: 'parent',
-      title: 'Art Project Success!',
-      titleZh: '藝術項目成功！',
-      content: 'My son Alex created the most beautiful painting today. The creativity that REACH nurtures is incredible. Sharing some photos!',
-      contentZh: '我兒子Alex今天創作了最美麗的畫作。REACH培養的創造力令人難以置信。分享一些照片！',
-      timestamp: '2024-08-22T16:45:00Z',
-      likes: 15,
-      comments: 6,
-      tags: ['art', 'creativity', 'proud-parent'],
-      hasImage: true
-    },
-    {
-      id: '4',
-      author: 'REACH Official',
-      authorZh: 'REACH官方',
-      avatar: 'RO',
-      role: 'staff',
-      title: 'Workshop: Parent-Child Learning Activities',
-      titleZh: '工作坊：親子學習活動',
-      content: 'Join us this Saturday for a special workshop on interactive learning activities you can do at home with your child. Registration link in comments!',
-      contentZh: '這個星期六加入我們的特別工作坊，學習在家與孩子一起進行的互動學習活動。註冊鏈接在評論中！',
-      timestamp: '2024-08-22T14:20:00Z',
-      likes: 25,
-      comments: 12,
-      tags: ['workshop', 'parent-child', 'learning'],
-      pinned: true,
-      hasVideo: true
-    }
-  ];
-
-  const filteredPosts = () => {
-    switch (selectedTab) {
-      case 'recent':
-        return forumPosts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      case 'popular':
-        return forumPosts.sort((a, b) => b.likes - a.likes);
-      case 'announcements':
-        return forumPosts.filter(post => post.role === 'staff' || post.pinned);
-      default:
-        return forumPosts;
+  const fetchComments = async (postId: number) => {
+    try {
+      const response = await apiService.getForumComments(postId);
+      if (response.success && response.data) {
+        setComments(prev => ({
+          ...prev,
+          [postId]: response.data as Comment[]
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching comments:', error);
     }
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'teacher':
-        return 'bg-blue-100 text-blue-800';
-      case 'staff':
-        return 'bg-purple-100 text-purple-800';
-      case 'parent':
-        return 'bg-emerald-100 text-emerald-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const handleCreatePost = async () => {
+    if (!newPostTitle.trim() || !newPostContent.trim()) return;
+    
+    try {
+      const response = await apiService.createForumPost(
+        newPostTitle,
+        newPostContent,
+        newPostCategory || undefined
+      );
+      
+      if (response.success) {
+        setNewPostTitle('');
+        setNewPostContent('');
+        setNewPostCategory('');
+        setShowNewPostDialog(false);
+        fetchPosts(); // Refresh posts
+      }
+    } catch (error) {
+      console.error('Error creating post:', error);
     }
   };
 
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case 'teacher':
-        return state.language === 'zh' ? '老師' : 'Teacher';
-      case 'staff':
-        return state.language === 'zh' ? '工作人員' : 'Staff';
-      case 'parent':
-        return state.language === 'zh' ? '家長' : 'Parent';
-      default:
-        return role;
+  const handleLikePost = async (postId: number) => {
+    try {
+      const response = await apiService.toggleForumLike(postId);
+      if (response.success) {
+        fetchPosts(); // Refresh to get updated like count
+      }
+    } catch (error) {
+      console.error('Error liking post:', error);
     }
   };
 
-  const handleCreatePost = () => {
-    console.log('Creating post:', { title: newPostTitle, content: newPostContent });
-    setNewPostTitle('');
-    setNewPostContent('');
-    setShowNewPost(false);
-    // In real app, would create the post
+  const togglePostExpansion = (postId: number) => {
+    if (expandedPost === postId) {
+      setExpandedPost(null);
+    } else {
+      setExpandedPost(postId);
+      if (!comments[postId]) {
+        fetchComments(postId);
+      }
+    }
   };
 
-  const formatTimeAgo = (timestamp: string) => {
+  const filteredPosts = Array.isArray(posts) ? posts.filter(post => {
+    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         post.content.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || post.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  }) : [];
+
+  const categories = ['all', 'general', 'homework-help', 'achievements', 'tips', 'questions'];
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
     const now = new Date();
-    const postTime = new Date(timestamp);
-    const diffInHours = Math.floor((now.getTime() - postTime.getTime()) / (1000 * 60 * 60));
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
     
     if (diffInHours < 1) return 'Just now';
     if (diffInHours < 24) return `${diffInHours}h ago`;
     return `${Math.floor(diffInHours / 24)}d ago`;
   };
 
-  const getRankIcon = (rank: number) => {
-    switch (rank) {
-      case 1:
-        return <Crown className="w-5 h-5 text-yellow-500" />;
-      case 2:
-        return <Medal className="w-5 h-5 text-gray-400" />;
-      case 3:
-        return <Award className="w-5 h-5 text-amber-600" />;
-      default:
-        return <span className="w-5 h-5 flex items-center justify-center text-sm font-medium text-gray-600">#{rank}</span>;
-    }
-  };
-
-  const getRankColor = (rank: number) => {
-    switch (rank) {
-      case 1:
-        return 'from-yellow-100 to-amber-100 border-yellow-200';
-      case 2:
-        return 'from-gray-100 to-slate-100 border-gray-200';
-      case 3:
-        return 'from-orange-100 to-amber-100 border-orange-200';
-      default:
-        return 'from-blue-50 to-indigo-50 border-blue-200';
-    }
-  };
-
-  // If showing full leaderboard, render that component
-  if (showFullLeaderboard) {
-    return <CommunityLeaderboardFull />;
+  if (loading) {
+    return (
+      <div className="p-4 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+        <span className="ml-2">Loading forum posts...</span>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-25 to-emerald-25" style={{
-      background: 'linear-gradient(to bottom, #f0f9ff, #ecfdf5)'
-    }}>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl text-gray-900">{t('community.title', 'Community')}</h2>
-          <p className="text-gray-600">{t('community.subtitle', 'Connect with other REACH families')}</p>
+    <div className="p-4 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl text-gray-900">Community Forum</h2>
+          <p className="text-sm text-gray-600">Connect with other parents and share experiences</p>
         </div>
-
-        {/* Weekly Leaderboard */}
-        <Card className="border-0 shadow-lg bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2">
-              <Trophy className="w-5 h-5 text-purple-600" />
-              <span>Weekly Champions</span>
-              <Badge className="bg-purple-100 text-purple-800 ml-2">
-                🏆 Top 3
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {weeklyLeaderboard.slice(0, 3).map((entry) => (
-              <div 
-                key={entry.id} 
-                className={`flex items-center space-x-3 p-3 rounded-lg border bg-gradient-to-r ${getRankColor(entry.rank)}`}
-              >
-                <div className="flex items-center justify-center w-8 h-8">
-                  {getRankIcon(entry.rank)}
-                </div>
-                
-                <Avatar className="w-10 h-10">
-                  <AvatarFallback className="bg-gradient-to-r from-blue-400 to-purple-400 text-white">
-                    {entry.avatar}
-                  </AvatarFallback>
-                </Avatar>
-                
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium text-gray-900">{entry.parentName}</span>
-                    {entry.rank === 1 && <Crown className="w-4 h-4 text-yellow-500" />}
-                  </div>
-                  <p className="text-sm text-gray-600">{entry.childName}'s parent</p>
-                </div>
-                
-                <div className="text-right">
-                  <div className="text-lg font-medium text-gray-900">+{entry.weeklyPoints}</div>
-                  <div className="text-xs text-gray-600">this week</div>
-                </div>
-              </div>
-            ))}
-            
-            <Button 
-              variant="outline" 
-              className="w-full mt-3" 
-              size="sm"
-              onClick={() => setShowFullLeaderboard(true)}
-            >
-              <Trophy className="w-4 h-4 mr-2" />
-              View Full Leaderboard
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Community Stats */}
-        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Users className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="text-xl text-gray-900">{communityStats.totalFamilies}</div>
-                <div className="text-xs text-gray-600">{t('community.families', 'families')}</div>
-              </div>
-              
-              <div className="text-center">
-                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <MessageSquare className="w-6 h-6 text-emerald-600" />
-                </div>
-                <div className="text-xl text-gray-900">{communityStats.postsThisWeek}</div>
-                <div className="text-xs text-gray-600">Posts this week</div>
-              </div>
-
-              <div className="text-center">
-                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Sparkles className="w-6 h-6 text-amber-600" />
-                </div>
-                <div className="text-xl text-gray-900">{communityStats.activeToday}</div>
-                <div className="text-xs text-gray-600">Active today</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Create Post Button */}
-        <Dialog open={showNewPost} onOpenChange={setShowNewPost}>
+        
+        <Dialog open={showNewPostDialog} onOpenChange={setShowNewPostDialog}>
           <DialogTrigger asChild>
-            <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white h-12">
-              <Plus className="w-5 h-5 mr-2" />
-              Share Your Thoughts
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              New Post
             </Button>
           </DialogTrigger>
-          <DialogContent className="w-[90vw] max-w-md">
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create New Post</DialogTitle>
+              <DialogDescription>
+                Share your thoughts, questions, or experiences with the community
+              </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <Input
-                placeholder="Post title..."
-                value={newPostTitle}
-                onChange={(e) => setNewPostTitle(e.target.value)}
-              />
-              <Textarea
-                placeholder={t('community.postPlaceholder', "Share your thoughts, questions, or celebrate your child's progress...")}
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-                rows={4}
-              />
-              <div className="flex space-x-2">
-                <Button variant="outline" size="sm">
-                  <Camera className="w-4 h-4 mr-2" />
-                  {t('community.photo', 'Photo')}
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Video className="w-4 h-4 mr-2" />
-                  {t('community.video', 'Video')}
-                </Button>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Category</label>
+                <select
+                  value={newPostCategory}
+                  onChange={(e) => setNewPostCategory(e.target.value)}
+                  className="w-full mt-1 p-2 border border-gray-200 rounded-md text-sm"
+                >
+                  <option value="">Select category</option>
+                  <option value="general">General Discussion</option>
+                  <option value="homework-help">Homework Help</option>
+                  <option value="achievements">Achievements</option>
+                  <option value="tips">Tips & Advice</option>
+                  <option value="questions">Questions</option>
+                </select>
               </div>
-              <div className="flex space-x-3">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowNewPost(false)}
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700">Title</label>
+                <Input
+                  value={newPostTitle}
+                  onChange={(e) => setNewPostTitle(e.target.value)}
+                  placeholder="Enter post title..."
+                  className="mt-1"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700">Content</label>
+                <Textarea
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  placeholder="Share your thoughts..."
+                  className="mt-1 min-h-[100px]"
+                />
+              </div>
+              
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
                   className="flex-1"
+                  onClick={() => setShowNewPostDialog(false)}
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
+                  className="flex-1"
                   onClick={handleCreatePost}
                   disabled={!newPostTitle.trim() || !newPostContent.trim()}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
                 >
-                  {t('community.post', 'Post')}
+                  Post
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
+      </div>
 
-        {/* Filter Tabs */}
-        <div className="flex space-x-2 overflow-x-auto pb-2">
-          <Button
-            variant={selectedTab === 'recent' ? "default" : "outline"}
-            onClick={() => setSelectedTab('recent')}
-            className="whitespace-nowrap"
-          >
-            Recent
-          </Button>
-          <Button
-            variant={selectedTab === 'popular' ? "default" : "outline"}
-            onClick={() => setSelectedTab('popular')}
-            className="whitespace-nowrap"
-          >
-            Popular
-          </Button>
-          <Button
-            variant={selectedTab === 'announcements' ? "default" : "outline"}
-            onClick={() => setSelectedTab('announcements')}
-            className="whitespace-nowrap"
-          >
-            Announcements
-          </Button>
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Search posts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </div>
+        
+        <div className="flex items-center space-x-2">
+          <Filter className="w-4 h-4 text-gray-400" />
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="p-2 border border-gray-200 rounded-md text-sm"
+          >
+            {categories.map(category => (
+              <option key={category} value={category}>
+                {category === 'all' ? 'All Categories' : 
+                 category.split('-').map(word => 
+                   word.charAt(0).toUpperCase() + word.slice(1)
+                 ).join(' ')}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-        {/* Forum Posts */}
-        <div className="space-y-4">
-          {filteredPosts().map((post) => (
-            <Card key={post.id} className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardContent className="p-6">
-                {/* Post Header */}
-                <div className="flex items-start space-x-3 mb-4">
-                  <Avatar className="w-10 h-10">
-                    <AvatarFallback className="bg-gradient-to-r from-blue-400 to-purple-400 text-white">
-                      {post.avatar}
-                    </AvatarFallback>
-                  </Avatar>
+      {/* Posts */}
+      <div className="space-y-4">
+        {filteredPosts.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500">No posts found</p>
+              <p className="text-sm text-gray-400">
+                {searchQuery || selectedCategory !== 'all' 
+                  ? 'Try adjusting your search or filters'
+                  : 'Be the first to start a discussion!'
+                }
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredPosts.map((post) => (
+            <Card key={post.id} className="hover:shadow-sm transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {post.author?.name || post.author?.username || 'Anonymous'}
+                      </p>
+                      <div className="flex items-center space-x-2 text-xs text-gray-500">
+                        <Clock className="w-3 h-3" />
+                        <span>{formatTimeAgo(post.created_at)}</span>
+                        {post.category && (
+                          <Badge variant="secondary" className="text-xs">
+                            {post.category.replace('-', ' ')}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mb-3">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">{post.title}</h3>
+                  <p className="text-gray-600 text-sm line-clamp-3">{post.content}</p>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleLikePost(post.id)}
+                      className="flex items-center space-x-1"
+                    >
+                      <Heart className={`w-4 h-4 ${post.liked_by_user ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+                      <span className="text-sm">{post.likes_count || 0}</span>
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => togglePostExpansion(post.id)}
+                      className="flex items-center space-x-1"
+                    >
+                      <MessageSquare className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm">{post.comments_count || 0}</span>
+                    </Button>
+                  </div>
                   
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="font-medium text-gray-900">
-                        {state.language === 'zh' ? (post.authorZh || post.author) : post.author}
-                      </span>
-                      <Badge className={getRoleColor(post.role)}>
-                        {getRoleLabel(post.role)}
-                      </Badge>
-                      {post.pinned && <Pin className="w-4 h-4 text-amber-500" />}
-                    </div>
-                    <div className="flex items-center space-x-2 text-xs text-gray-500">
-                      <Calendar className="w-3 h-3" />
-                      <span>{formatTimeAgo(post.timestamp)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Post Content */}
-                <div className="mb-4">
-                  <h3 className="text-lg text-gray-900 mb-2">
-                    {state.language === 'zh' ? (post.titleZh || post.title) : post.title}
-                  </h3>
-                  <p className="text-gray-700 leading-relaxed">
-                    {state.language === 'zh' ? (post.contentZh || post.content) : post.content}
-                  </p>
-                </div>
-
-                {/* Media Indicators */}
-                {(post.hasImage || post.hasVideo) && (
-                  <div className="flex space-x-2 mb-4">
-                    {post.hasImage && (
-                      <Badge variant="outline" className="text-xs">
-                        <Image className="w-3 h-3 mr-1" />
-                        Image
-                      </Badge>
-                    )}
-                    {post.hasVideo && (
-                      <Badge variant="outline" className="text-xs">
-                        <Video className="w-3 h-3 mr-1" />
-                        Video
-                      </Badge>
-                    )}
-                  </div>
-                )}
-
-                {/* Tags */}
-                {post.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {post.tags.map((tag, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        #{tag}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-
-                {/* Post Actions */}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <div className="flex space-x-4">
-                    <Button variant="ghost" size="sm" className="text-gray-600 hover:text-red-500">
-                      <ThumbsUp className="w-4 h-4 mr-1" />
-                      {post.likes}
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-500">
-                      <MessageCircle className="w-4 h-4 mr-1" />
-                      {post.comments}
-                    </Button>
-                  </div>
-                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-green-500">
-                    <Share2 className="w-4 h-4" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => togglePostExpansion(post.id)}
+                  >
+                    {expandedPost === post.id ? 'Show Less' : 'Read More'}
                   </Button>
                 </div>
+                
+                {/* Expanded Comments Section */}
+                {expandedPost === post.id && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="mb-4">
+                      <p className="text-gray-700">{post.content}</p>
+                    </div>
+                    
+                    {comments[post.id] && comments[post.id].length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-gray-900">Comments</h4>
+                        {comments[post.id].map((comment) => (
+                          <div key={comment.id} className="flex space-x-3 p-3 bg-gray-50 rounded-lg">
+                            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                              <User className="w-3 h-3 text-gray-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {comment.author?.name || comment.author?.username || 'Anonymous'}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {formatTimeAgo(comment.created_at)}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700">{comment.content}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
-          ))}
-        </div>
-
-        {/* Load More */}
-        <div className="text-center">
-          <Button variant="outline" className="w-full">
-            {t('community.loadMore', 'Load More Posts')}
-          </Button>
-        </div>
+          ))
+        )}
       </div>
     </div>
   );

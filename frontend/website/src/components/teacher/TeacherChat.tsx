@@ -4,6 +4,7 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { MessageCircle, Send } from 'lucide-react';
+import { useTeacherContext } from '../contexts/TeacherContext';
 
 type Role = 'parent' | 'teacher' | 'staff';
 
@@ -13,6 +14,8 @@ interface ApiUser {
   role: Role;
   parent_name?: string | null;
   children_name?: string | null;
+  teacher_name?: string | null;
+  staff_name?: string | null;
 }
 
 interface ApiMessage {
@@ -45,8 +48,6 @@ type ChatMessage = {
 
 const API_BASE = 'http://localhost:8000';
 const CHAT_POLL_MS = 3000;
-const TEACHER_ID = 19;
-// TODO: replace with actual logged-in user
 
 const formatTime = (ts: string) => {
   const d = new Date(ts);
@@ -56,6 +57,12 @@ const formatTime = (ts: string) => {
 };
 
 export function TeacherChat() {
+  const { state } = useTeacherContext();
+  const currentUser = state.user;
+  
+  // Log user ID for debugging
+  console.log('TeacherChat - Current User ID:', currentUser?.id);
+  
   const [chatMessage, setChatMessage] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -68,7 +75,7 @@ export function TeacherChat() {
   const withUserHeader = (init?: RequestInit): RequestInit => ({
     credentials: 'omit',
     ...(init || {}),
-    headers: { ...(init?.headers || {}), 'User-ID': String(TEACHER_ID) },
+    headers: { ...(init?.headers || {}), 'User-ID': String(currentUser?.id || '') },
   });
 
   const ensureStaffConversation = async (): Promise<ApiConversation | null> => {
@@ -82,7 +89,7 @@ export function TeacherChat() {
       all.find(
         (c) =>
           c.conversation_type === 'private' &&
-          c.participants.some((p) => p.id === TEACHER_ID) &&
+          c.participants.some((p) => p.id === parseInt(currentUser?.id || '0')) &&
           c.participants.some((p) => p.role === 'staff')
       ) || null;
     if (existing) return existing;
@@ -95,7 +102,7 @@ export function TeacherChat() {
 
     const createRes = await fetch(`${API_BASE}/chat/conversations/create/`, {
       method: 'POST',
-      headers: { 'User-ID': String(TEACHER_ID), 'Content-Type': 'application/json' },
+      headers: { 'User-ID': String(currentUser?.id || ''), 'Content-Type': 'application/json' },
       body: JSON.stringify({ participant_id: anyStaff.id }),
     });
     if (!createRes.ok) throw new Error(`Failed to create conversation (${createRes.status})`);
@@ -113,10 +120,10 @@ export function TeacherChat() {
 
     const mapped: ChatMessage[] = (data.messages || [])
       .map((m) => {
-        const isMe = m.from_user.id === TEACHER_ID;
+        const isMe = m.from_user.id === parseInt(currentUser?.id || '0');
         return {
           id: String(m.id),
-          sender: isMe ? 'You' : m.from_user.parent_name || m.from_user.username || 'REACH Staff',
+          sender: isMe ? 'You' : m.from_user.parent_name || m.from_user.teacher_name || m.from_user.staff_name || m.from_user.username || 'REACH Staff',
           message: m.text || (m.attachment ? '[Attachment]' : ''),
           timestamp: formatTime(m.created_at),
           type: isMe ? ('sent' as const) : ('received' as const),
@@ -156,7 +163,7 @@ export function TeacherChat() {
         pollingRef.current = null;
       }
     };
-  }, []);
+  }, [currentUser]);
 
   // autoscroll to bottom on new messages
   useEffect(() => {
@@ -184,7 +191,7 @@ export function TeacherChat() {
       const url = `${API_BASE}/chat/conversations/${selectedConv.id}/messages/`;
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'User-ID': String(TEACHER_ID), 'Content-Type': 'application/json' },
+        headers: { 'User-ID': String(currentUser?.id || ''), 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       });
       if (!res.ok) throw new Error(`Failed to send message (${res.status})`);

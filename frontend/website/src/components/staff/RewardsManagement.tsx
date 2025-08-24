@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { apiService } from '../../services/api';
 import { 
   Plus, 
   Edit, 
@@ -81,104 +82,90 @@ export function RewardsManagement({ user }: RewardsManagementProps) {
     terms: '',
     icon: 'ticket'
   });
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [redemptionStats, setRedemptionStats] = useState<RedemptionStats>({
+    totalRedemptions: 0,
+    pointsRedeemed: 0,
+    popularReward: '',
+    activeRewards: 0
+  });
 
-  const rewards: Reward[] = [
-    {
-      id: '1',
-      name: 'McDonald\'s Happy Meal',
-      description: 'Free Happy Meal voucher redeemable at any McDonald\'s location',
-      category: 'voucher',
-      cost: 50,
-      stockQuantity: 25,
-      isUnlimited: false,
-      isActive: true,
-      createdDate: '2024-12-15',
-      totalRedeemed: 12,
-      icon: 'coffee',
-      validUntil: '2025-03-31',
-      terms: 'Valid at participating McDonald\'s locations. Cannot be combined with other offers.'
-    },
-    {
-      id: '2',
-      name: 'Toys"R"Us Discount',
-      description: '20% off any single item at Toys"R"Us',
-      category: 'coupon',
-      cost: 75,
-      stockQuantity: 15,
-      isUnlimited: false,
-      isActive: true,
-      createdDate: '2024-12-10',
-      totalRedeemed: 8,
-      icon: 'shopping-bag',
-      validUntil: '2025-02-28',
-      terms: 'Excludes sale items and special promotions. One coupon per family.'
-    },
-    {
-      id: '3',
-      name: 'Science Museum Family Pass',
-      description: 'Free entry for family of 4 to Hong Kong Science Museum',
-      category: 'activity',
-      cost: 100,
-      stockQuantity: 8,
-      isUnlimited: false,
-      isActive: true,
-      createdDate: '2024-12-01',
-      totalRedeemed: 15,
-      icon: 'trophy',
-      validUntil: '2025-06-30',
-      terms: 'Valid for 2 adults and 2 children. Must be used on weekdays only.'
-    },
-    {
-      id: '4',
-      name: 'Cinema Tickets',
-      description: '2 free movie tickets for weekend shows',
-      category: 'voucher',
-      cost: 80,
-      stockQuantity: 0,
-      isUnlimited: false,
-      isActive: false,
-      createdDate: '2024-11-20',
-      totalRedeemed: 20,
-      icon: 'ticket',
-      validUntil: '2025-01-31',
-      terms: 'Valid for weekend shows only. Subject to availability.'
-    },
-    {
-      id: '5',
-      name: 'Digital Storybook Collection',
-      description: 'Access to premium digital storybooks for 1 month',
-      category: 'digital',
-      cost: 30,
-      isUnlimited: true,
-      isActive: true,
-      createdDate: '2024-12-05',
-      totalRedeemed: 45,
-      icon: 'gift',
-      validUntil: '2025-12-31',
-      terms: 'Digital access only. Requires internet connection.'
+  useEffect(() => {
+    loadRewards();
+    loadStats();
+  }, []);
+
+  const loadRewards = async () => {
+    setLoading(true);
+    try {
+      const response = await apiService.getAllRewards();
+      if (response.success && response.data) {
+        setRewards(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load rewards:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  const redemptionStats: RedemptionStats = {
-    totalRedemptions: 100,
-    pointsRedeemed: 6850,
-    popularReward: 'Digital Storybook Collection',
-    activeRewards: rewards.filter(r => r.isActive).length
   };
 
-  const createReward = () => {
-    console.log('Creating reward:', newReward);
-    setNewReward({
-      name: '',
-      description: '',
-      category: 'voucher',
-      cost: 50,
-      stockQuantity: 10,
-      isUnlimited: false,
-      validUntil: '',
-      terms: '',
-      icon: 'ticket'
-    });
+  const loadStats = async () => {
+    try {
+      const response = await apiService.getRewardStats();
+      if (response.success && response.data) {
+        setRedemptionStats(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+    }
+  };
+
+  const createReward = async () => {
+    try {
+      const response = await apiService.createReward(newReward, user.id);
+      if (response.success) {
+        await loadRewards(); // Reload rewards list
+        setNewReward({
+          name: '',
+          description: '',
+          category: 'voucher',
+          cost: 50,
+          stockQuantity: 10,
+          isUnlimited: false,
+          validUntil: '',
+          terms: '',
+          icon: 'ticket'
+        });
+        console.log('Reward created successfully');
+      }
+    } catch (error) {
+      console.error('Failed to create reward:', error);
+    }
+  };
+
+  const deleteReward = async (rewardId: string) => {
+    try {
+      const response = await apiService.deleteReward(rewardId);
+      if (response.success) {
+        await loadRewards(); // Reload rewards list
+        console.log('Reward deleted successfully');
+      }
+    } catch (error) {
+      console.error('Failed to delete reward:', error);
+    }
+  };
+
+  const toggleRewardStatus = async (rewardId: string, isActive: boolean) => {
+    try {
+      const response = await apiService.toggleRewardStatus(rewardId, isActive);
+      if (response.success) {
+        await loadRewards(); // Reload rewards list
+        console.log('Reward status updated successfully');
+      }
+    } catch (error) {
+      console.error('Failed to update reward status:', error);
+    }
   };
 
   const getCategoryColor = (category: string) => {
@@ -214,6 +201,17 @@ export function RewardsManagement({ user }: RewardsManagementProps) {
 
   const activeRewards = rewards.filter(r => r.isActive);
   const inactiveRewards = rewards.filter(r => !r.isActive);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-600 mt-2">Loading rewards...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -446,10 +444,20 @@ export function RewardsManagement({ user }: RewardsManagementProps) {
                     <Button size="sm" variant="outline" className="flex-1">
                       View Redemptions
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => toggleRewardStatus(reward.id, false)}
+                    >
                       Deactivate
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 text-red-600 hover:text-red-700">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1 text-red-600 hover:text-red-700"
+                      onClick={() => deleteReward(reward.id)}
+                    >
                       <Trash2 className="w-4 h-4 mr-1" />
                       Delete
                     </Button>

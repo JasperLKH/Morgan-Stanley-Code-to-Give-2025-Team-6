@@ -3,13 +3,15 @@ import { Users, BookOpen, BarChart3, MessageCircle, LogOut, Home, Plus, Edit, Ca
 import { Button } from './ui/button';
 import { HelpDialog } from './HelpDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { StaffProvider } from './contexts/StaffContext';
 import { StaffDashboard } from './staff/StaffDashboard';
 import { PerformanceAnalytics } from './staff/PerformanceAnalytics';
-import { ParentAccountManagement } from './staff/ParentAccountManagement';
+import ParentAccountManagement from './staff/ParentAccountManagement';
 import { StaffAssignmentManagement } from './staff/StaffAssignmentManagement';
 import { StaffChat } from './staff/StaffChat';
 import { CommunityManagement } from './staff/CommunityManagement';
 import { RewardsManagement } from './staff/RewardsManagement';
+import { QuestionnaireManager } from './staff/QuestionnaireManager';
 
 interface User {
   id: string;
@@ -23,6 +25,16 @@ interface StaffAppProps {
 }
 
 export function StaffApp({ user, onLogout }: StaffAppProps) {
+  console.log('StaffApp - User logged in:', user);
+  
+  return (
+    <StaffProvider user={user}>
+      <StaffAppContent user={user} onLogout={onLogout} />
+    </StaffProvider>
+  );
+}
+
+function StaffAppContent({ user, onLogout }: StaffAppProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const tabs = [
@@ -48,7 +60,7 @@ export function StaffApp({ user, onLogout }: StaffAppProps) {
       case 'rewards':
         return <RewardsManagement user={user} />;
       case 'chat':
-        return <StaffChat user={user} />;
+        return <StaffChat />;
       case 'community':
         return <CommunityManagement user={user} />;
       default:
