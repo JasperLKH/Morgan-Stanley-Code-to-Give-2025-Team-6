@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { TrendingUp, Users, BookOpen, Target, Award } from 'lucide-react';
 
 interface User {
@@ -14,16 +14,27 @@ interface PerformanceAnalyticsProps {
 }
 
 export function PerformanceAnalytics({ user }: PerformanceAnalyticsProps) {
-  const monthlyData = [
-    { month: 'Jul', completed: 45, submitted: 52 },
-    { month: 'Aug', completed: 67, submitted: 78 },
+  // Updated data structure with values farther apart between subjects
+  const monthlySubjectData = [
+    { month: 'Jan', alphabet: 60, vocabulary: 68, phonemic: 75, pointRead: 55 },
+    { month: 'Feb', alphabet: 63, vocabulary: 71, phonemic: 78, pointRead: 58 },
+    { month: 'Mar', alphabet: 67, vocabulary: 74, phonemic: 81, pointRead: 62 },
+    { month: 'Apr', alphabet: 70, vocabulary: 77, phonemic: 83, pointRead: 65 },
+    { month: 'May', alphabet: 73, vocabulary: 80, phonemic: 85, pointRead: 68 },
+    { month: 'Jun', alphabet: 75, vocabulary: 82, phonemic: 86, pointRead: 70 },
+    { month: 'Jul', alphabet: 77, vocabulary: 84, phonemic: 88, pointRead: 72 },
+    { month: 'Aug', alphabet: 79, vocabulary: 86, phonemic: 90, pointRead: 74 },
+    { month: 'Sep', alphabet: 81, vocabulary: 88, phonemic: 91, pointRead: 76 },
+    { month: 'Oct', alphabet: 83, vocabulary: 89, phonemic: 92, pointRead: 78 },
+    { month: 'Nov', alphabet: 85, vocabulary: 90, phonemic: 93, pointRead: 80 },
+    { month: 'Dec', alphabet: 87, vocabulary: 92, phonemic: 94, pointRead: 82 },
   ];
 
   const subjectPerformance = [
-    { subject: 'Math', average: 82 },
-    { subject: 'Reading', average: 88 },
-    { subject: 'Art', average: 91 },
-    { subject: 'Social', average: 79 },
+    { subject: 'Alphabet Recognition', average: 77 },
+    { subject: 'Vocabulary Knowledge', average: 83 },
+    { subject: 'Phonemic Awareness', average: 86 },
+    { subject: 'Point and Read', average: 70 },
   ];
 
   const stats = {
@@ -31,6 +42,14 @@ export function PerformanceAnalytics({ user }: PerformanceAnalyticsProps) {
     averageCompletion: 84,
     totalAssignments: 156,
     parentEngagement: 92,
+  };
+
+  // Colors for each subject line
+  const subjectColors = {
+    alphabet: '#3b82f6', // Blue
+    vocabulary: '#10b981', // Green
+    phonemic: '#8b5cf6', // Purple
+    pointRead: '#f59e0b', // Orange
   };
 
   return (
@@ -83,31 +102,68 @@ export function PerformanceAnalytics({ user }: PerformanceAnalyticsProps) {
         </Card>
       </div>
 
-      {/* Monthly Performance */}
+      {/* Monthly Performance - Line Chart */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Monthly Assignment Trends</CardTitle>
+          <CardTitle className="text-lg">Monthly Literacy Performance Trends</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyData}>
-                <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
-                <Bar dataKey="submitted" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="completed" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
+              <LineChart data={monthlySubjectData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis 
+                  dataKey="month" 
+                  axisLine={false} 
+                  tickLine={false}
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false}
+                  tick={{ fontSize: 12 }}
+                  domain={[50, 100]}
+                />
+                <Tooltip />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="alphabet" 
+                  stroke={subjectColors.alphabet} 
+                  strokeWidth={2}
+                  dot={{ fill: subjectColors.alphabet, strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6 }}
+                  name="Alphabet Recognition"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="vocabulary" 
+                  stroke={subjectColors.vocabulary} 
+                  strokeWidth={2}
+                  dot={{ fill: subjectColors.vocabulary, strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6 }}
+                  name="Vocabulary Knowledge"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="phonemic" 
+                  stroke={subjectColors.phonemic} 
+                  strokeWidth={2}
+                  dot={{ fill: subjectColors.phonemic, strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6 }}
+                  name="Phonemic Awareness"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="pointRead" 
+                  stroke={subjectColors.pointRead} 
+                  strokeWidth={2}
+                  dot={{ fill: subjectColors.pointRead, strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6 }}
+                  name="Point and Read"
+                />
+              </LineChart>
             </ResponsiveContainer>
-          </div>
-          <div className="flex justify-center space-x-4 mt-4">
-            <div className="flex items-center space-x-1">
-              <div className="w-3 h-3 bg-gray-300 rounded"></div>
-              <span className="text-xs text-gray-600">Submitted</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-3 h-3 bg-blue-500 rounded"></div>
-              <span className="text-xs text-gray-600">Completed</span>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -115,7 +171,7 @@ export function PerformanceAnalytics({ user }: PerformanceAnalyticsProps) {
       {/* Subject Performance */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Subject Performance Averages</CardTitle>
+          <CardTitle className="text-lg">Literacy Skill Average</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {subjectPerformance.map((subject, index) => (
