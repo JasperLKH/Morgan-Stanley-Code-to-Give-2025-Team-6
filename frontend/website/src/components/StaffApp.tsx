@@ -11,6 +11,7 @@ import { StaffAssignmentManagement } from './staff/StaffAssignmentManagement';
 import { StaffChat } from './staff/StaffChat';
 import { CommunityManagement } from './staff/CommunityManagement';
 import { RewardsManagement } from './staff/RewardsManagement';
+import { QuestionnaireManager } from './staff/QuestionnaireManager';
 
 interface User {
   id: string;
