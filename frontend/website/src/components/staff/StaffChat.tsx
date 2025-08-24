@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { useStaffContext } from '../contexts/StaffContext';
 import { QuestionnaireManager } from './QuestionnaireManager';
 import { 
   MessageCircle, 
@@ -18,16 +17,14 @@ import {
   X,
   FileQuestion
 } from 'lucide-react';
+import { useStaffContext } from '../contexts/StaffContext';
 
 const API_BASE = 'http://localhost:8000';
-const CURRENT_STAFF = { id: 2, username: 'staff1', role: 'staff' as const };
 
-const withUserHeader = (init?: RequestInit): RequestInit => ({
-  credentials: 'omit',
-  ...(init || {}),
+// Helper function to add User-ID header for API calls
+const withUserHeader = (currentUserId?: string) => ({
   headers: {
-    ...(init?.headers || {}),
-    'User-ID': String(CURRENT_STAFF.id),
+    'User-ID': currentUserId || '',
   },
 });
 
@@ -39,6 +36,8 @@ interface ApiUser {
   role: Role;
   parent_name?: string | null;
   children_name?: string | null;
+  teacher_name?: string | null;
+  staff_name?: string | null;
 }
 
 interface ApiMessage {
@@ -95,6 +94,12 @@ type ChatBubble = {
 };
 
 export function StaffChat() {
+  const { state } = useStaffContext();
+  const currentUser = state.user;
+  
+  // Log user ID for debugging
+  console.log('StaffChat - Current User ID:', currentUser?.id);
+  
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -159,7 +164,7 @@ export function StaffChat() {
       id: '2',
       title: 'Parent Satisfaction Survey',
       description: 'We value your feedback on our teaching methods',
-      status: 'active',
+      status: 'draft',
       questions: [
         {
           id: 'q1',
@@ -185,7 +190,7 @@ export function StaffChat() {
       setLoading(true);
       setErrorMsg('');
       try {
-        const res = await fetch(`${API_BASE}/chat/conversations/`, withUserHeader());
+        const res = await fetch(`${API_BASE}/chat/conversations/`, withUserHeader(currentUser?.id));
         if (!res.ok) throw new Error(`Failed to load conversations (${res.status})`);
         const data: { conversations: ApiConversation[] } = await res.json();
         if (!alive) return;
@@ -198,26 +203,26 @@ export function StaffChat() {
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [currentUser]);
 
   /* -------------------- load ALL users (directory) -------------------- */
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/account/users/`, withUserHeader());
+        const res = await fetch(`${API_BASE}/account/users/`, withUserHeader(currentUser?.id));
         if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
         const data: { users: ApiUser[] } = await res.json();
         if (!alive) return;
         // exclude self
-        setAllUsers((data.users || []).filter(u => u.id !== CURRENT_STAFF.id));
+        setAllUsers((data.users || []).filter(u => u.id !== parseInt(currentUser?.id || '0')));
       } catch (e) {
         // non-fatal for chat
         console.warn(e);
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [currentUser]);
 
   /* -------------------- load questionnaires -------------------- */
   useEffect(() => {
@@ -225,78 +230,44 @@ export function StaffChat() {
     (async () => {
       try {
         // This endpoint should return the staff's questionnaires
-        const res = await fetch(`${API_BASE}/questionnaires/`, withUserHeader());
+        const res = await fetch(`${API_BASE}/questionnaires/`, withUserHeader(currentUser?.id));
         if (!res.ok) throw new Error(`Failed to load questionnaires (${res.status})`);
         const data: { questionnaires: Questionnaire[] } = await res.json();
         if (!alive) return;
         setQuestionnaires(data.questionnaires || []);
       } catch (e) {
-        console.warn('Failed to load questionnaires, using sample data', e);
+        console.warn('Failed to load questionnaires', e);
         // Use sample data for demo purposes
         setQuestionnaires(sampleQuestionnaires);
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [currentUser]);
 
   /* -------------------- helper: fetch messages for a conversation -------------------- */
   const fetchMessages = async (convId: number) => {
     try {
-      const res = await fetch(`${API_BASE}/chat/conversations/${convId}/messages/list`, withUserHeader());
+      const res = await fetch(`${API_BASE}/chat/conversations/${convId}/messages/list`, withUserHeader(currentUser?.id));
       if (!res.ok) throw new Error(`Failed to load messages (${res.status})`);
       const data: { messages: ApiMessage[] } = await res.json();
       const mapped: ChatBubble[] = (data.messages || []).map((m) => ({
         id: m.id,
-        type: m.from_user.id === CURRENT_STAFF.id ? 'sent' : 'received',
+        type: m.from_user.id === parseInt(currentUser?.id || '0') ? 'sent' : 'received',
         text: m.text || undefined,
         attachmentUrl: m.attachment ? `${API_BASE}${m.attachment}` : undefined,
         questionnaire: m.questionnaire_id ? questionnaires.find(q => q.id === m.questionnaire_id) : undefined,
-        senderName: m.from_user.parent_name || m.from_user.username,
+        senderName: m.from_user.parent_name || m.from_user.teacher_name || m.from_user.staff_name || m.from_user.username,
         timestampISO: m.created_at,
       }));
       setMessages(mapped);
     } catch (e) {
-      console.warn('Failed to fetch messages, using sample data', e);
-      // For demo, add some sample messages with questionnaires
-      if (messages.length === 0) {
-        setMessages([
-          {
-            id: 1,
-            type: 'sent',
-            text: "Hello Sarah Chen! I'm from the REACH support team. How can I help you today?",
-            senderName: 'You',
-            timestampISO: new Date(Date.now() - 3600000).toISOString(),
-          },
-          {
-            id: 2,
-            type: 'sent',
-            questionnaire: questionnaires.find(q => q.id === '1'),
-            senderName: 'You',
-            timestampISO: new Date().toISOString(),
-          }
-        ]);
-      }
+      console.warn('Failed to fetch messages', e);
     }
   };
 
   /* -------------------- load messages when selection changes -------------------- */
   useEffect(() => {
-    if (!selectedConv) { 
-      // For demo, show some sample messages when no conversation is selected
-      if (messages.length === 0) {
-        setMessages([
-          {
-            id: 1,
-            type: 'sent',
-            text: "Hello! Please select a conversation to start chatting.",
-            senderName: 'System',
-            timestampISO: new Date().toISOString(),
-          }
-        ]);
-      }
-      return; 
-    }
-    
+    if (!selectedConv) { setMessages([]); return; }
     let alive = true;
     (async () => {
       try {
@@ -309,7 +280,7 @@ export function StaffChat() {
       }
     })();
     return () => { alive = false; };
-  }, [selectedConv, questionnaires]);
+  }, [selectedConv]);
 
   /* -------------------- autoscroll -------------------- */
   useEffect(() => {
@@ -325,11 +296,11 @@ export function StaffChat() {
   /* -------------------- contacts from conversations (left list) -------------------- */
   const contacts = useMemo(() => {
     return conversations.map((c) => {
-      const other = c.participants.find((p) => p.id !== CURRENT_STAFF.id) || c.participants[0];
+      const other = c.participants.find((p) => p.id !== parseInt(currentUser?.id || '0')) || c.participants[0];
       return {
         id: c.id,
         name: c.conversation_type === 'private'
-          ? (other?.parent_name || other?.username)
+          ? (other?.parent_name || other?.teacher_name || other?.staff_name || other?.username)
           : (c.name || `Group #${c.id}`),
         role: (other?.role || 'parent') as 'parent' | 'teacher',
         childName: other?.children_name || undefined,
@@ -338,7 +309,7 @@ export function StaffChat() {
         otherUserId: other?.id,
       };
     });
-  }, [conversations]);
+  }, [conversations, currentUser]);
 
   const parentContacts = contacts.filter((c) => c.role === 'parent');
   const teacherContacts = contacts.filter((c) => c.role === 'teacher');
@@ -352,6 +323,8 @@ export function StaffChat() {
       .filter(u =>
         (u.username || '').toLowerCase().includes(q) ||
         (u.parent_name || '').toLowerCase().includes(q) ||
+        (u.teacher_name || '').toLowerCase().includes(q) ||
+        (u.staff_name || '').toLowerCase().includes(q) ||
         (u.children_name || '').toLowerCase().includes(q) ||
         (u.role || '').toLowerCase().includes(q)
       )
@@ -365,7 +338,7 @@ export function StaffChat() {
       (c) =>
         c.conversation_type === 'private' &&
         c.participants.some((p) => p.id === targetUserId) &&
-        c.participants.some((p) => p.id === CURRENT_STAFF.id)
+        c.participants.some((p) => p.id === parseInt(currentUser?.id || '0'))
     );
     if (existing) {
       setSelectedConv(existing);
@@ -378,7 +351,7 @@ export function StaffChat() {
       const res = await fetch(`${API_BASE}/chat/conversations/create/`, {
         method: 'POST',
         headers: {
-          'User-ID': String(CURRENT_STAFF.id),
+          'User-ID': String(currentUser?.id || ''),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ participant_id: targetUserId }),
@@ -406,12 +379,12 @@ export function StaffChat() {
 
   const selectedHeader = useMemo(() => {
     if (!selectedConv) return null;
-    const other = selectedConv.participants.find((p) => p.id !== CURRENT_STAFF.id) || selectedConv.participants[0];
+    const other = selectedConv.participants.find((p) => p.id !== parseInt(currentUser?.id || '0')) || selectedConv.participants[0];
     const displayName = selectedConv.conversation_type === 'private'
-      ? (other?.parent_name || other?.username)
+      ? (other?.parent_name || other?.teacher_name || other?.staff_name || other?.username)
       : (selectedConv.name || `Group #${selectedConv.id}`);
     return { displayName, role: (other?.role || 'parent') as Role, childName: other?.children_name, lastActive: selectedConv.updated_at };
-  }, [selectedConv]);
+  }, [selectedConv, currentUser]);
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -435,7 +408,7 @@ export function StaffChat() {
       text: hasText ? composerText.trim() : undefined,
       attachmentUrl: composerFile ? URL.createObjectURL(composerFile) : undefined,
       questionnaire: questionnaire,
-      senderName: CURRENT_STAFF.username,
+      senderName: currentUser?.username || 'Unknown',
       timestampISO: new Date().toISOString(),
     };
     
@@ -452,14 +425,14 @@ export function StaffChat() {
         form.append('attachment', composerFile);
         res = await fetch(url, {
           method: 'POST',
-          headers: { 'User-ID': String(CURRENT_STAFF.id) },
+          headers: { 'User-ID': String(currentUser?.id || '') },
           body: form,
         });
       } else {
         res = await fetch(url, {
           method: 'POST',
           headers: { 
-            'User-ID': String(CURRENT_STAFF.id), 
+            'User-ID': String(currentUser?.id || ''), 
             'Content-Type': 'application/json' 
           },
           body: JSON.stringify({ 
@@ -599,7 +572,7 @@ export function StaffChat() {
                         <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
                       ) : (
                         filteredDirectory.map(u => {
-                          const display = u.parent_name || u.username;
+                          const display = u.parent_name || u.teacher_name || u.staff_name || u.username;
                           const badge =
                             u.role === 'parent' ? <Heart className="w-3 h-3 text-blue-500" /> :
                             u.role === 'teacher' ? <GraduationCap className="w-3 h-3 text-green-500" /> :
@@ -841,9 +814,9 @@ export function StaffChat() {
         {/* Questionnaires Tab */}
         <TabsContent value="questionnaires">
           <QuestionnaireManager user={{
-            id: CURRENT_STAFF.id.toString(),
-            name: CURRENT_STAFF.username,
-            role: CURRENT_STAFF.role
+            id: currentUser?.id || '',
+            name: currentUser?.username || '',
+            role: currentUser?.role as 'staff'
           }} />
         </TabsContent>
       </Tabs>
