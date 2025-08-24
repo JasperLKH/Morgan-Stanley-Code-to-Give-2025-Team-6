@@ -530,3 +530,248 @@ def questionnaire_activate(request, pk):
         'message': 'Questionnaire activated successfully',
         'questionnaire': QuestionnaireSerializer(questionnaire, context={'request': request}).data
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def send_to_all(request):
+    """
+    Send message to all users (staff only)
+    Headers: User-ID: <user_id>
+    Body: {"text": "message", "attachment": <file>}
+    """
+    user = get_user_from_request(request)
+    if not user:
+        return Response({'error': 'User-ID invalid'}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    # Only staff can send to all users
+    if user.role != 'staff':
+        return Response({'error': 'Permission denied. Only staff can send messages to all users.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Validate message content
+    serializer = MessageCreateSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get all users except the sender
+    all_users = User.objects.exclude(id=user.id).filter(is_active=True, role__in=['parent', 'teacher'])
+    
+    if not all_users.exists():
+        return Response({'error': 'No active users found to send message to'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Create individual conversations with each user
+    conversations_created = []
+    messages_sent = []
+    
+    for recipient in all_users:
+        # Check if private conversation already exists
+        existing_conv = Conversation.objects.filter(
+            conversation_type='private',
+            participants=user
+        ).filter(participants=recipient).first()
+        
+        if existing_conv:
+            conversation = existing_conv
+        else:
+            # Create new private conversation
+            conversation = Conversation.objects.create(
+                conversation_type='private',
+                created_by=user
+            )
+            conversation.participants.add(user, recipient)
+            conversations_created.append(conversation.id)
+        
+        # Send message in the conversation
+        message = Message.objects.create(
+            conversation=conversation,
+            from_user=user,
+            text=serializer.validated_data.get('text', ''),
+            attachment=serializer.validated_data.get('attachment')
+        )
+        
+        # Update conversation timestamp
+        conversation.save()
+        
+        messages_sent.append({
+            'conversation_id': conversation.id,
+            'message_id': message.id,
+            'recipient': recipient.username,
+            'recipient_name': recipient.parent_name or recipient.teacher_name or recipient.staff_name
+        })
+    
+    return Response({
+        'message': f'Message sent to {len(messages_sent)} users',
+        'total_recipients': len(messages_sent),
+        'conversations_created': len(conversations_created),
+        'messages_sent': messages_sent
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def send_to_all_by_school(request, school_name):
+    """
+    Send message to all users in a specific school (staff only)
+    Headers: User-ID: <user_id>
+    Body: {"text": "message", "attachment": <file>}
+    """
+    user = get_user_from_request(request)
+    if not user:
+        return Response({'error': 'User-ID invalid'}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    # Only staff can send to all users by school
+    if user.role != 'staff':
+        return Response({'error': 'Permission denied. Only staff can send messages to all users by school.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Validate message content
+    serializer = MessageCreateSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get all users in the specified school except the sender
+    school_users = User.objects.filter(
+        school__name=school_name,
+        is_active=True
+    ).exclude(id=user.id)
+    
+    if not school_users.exists():
+        return Response({
+            'error': f'No active users found in school "{school_name}" to send message to'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Create individual conversations with each user in the school
+    conversations_created = []
+    messages_sent = []
+    
+    for recipient in school_users:
+        # Check if private conversation already exists
+        existing_conv = Conversation.objects.filter(
+            conversation_type='private',
+            participants=user
+        ).filter(participants=recipient).first()
+        
+        if existing_conv:
+            conversation = existing_conv
+        else:
+            # Create new private conversation
+            conversation = Conversation.objects.create(
+                conversation_type='private',
+                created_by=user
+            )
+            conversation.participants.add(user, recipient)
+            conversations_created.append(conversation.id)
+        
+        # Send message in the conversation
+        message = Message.objects.create(
+            conversation=conversation,
+            from_user=user,
+            text=serializer.validated_data.get('text', ''),
+            attachment=serializer.validated_data.get('attachment')
+        )
+        
+        # Update conversation timestamp
+        conversation.save()
+        
+        messages_sent.append({
+            'conversation_id': conversation.id,
+            'message_id': message.id,
+            'recipient': recipient.username,
+            'recipient_name': recipient.parent_name or recipient.teacher_name or recipient.staff_name,
+            'recipient_role': recipient.role
+        })
+    
+    return Response({
+        'message': f'Message sent to {len(messages_sent)} users in school "{school_name}"',
+        'school': school_name,
+        'total_recipients': len(messages_sent),
+        'conversations_created': len(conversations_created),
+        'messages_sent': messages_sent
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def send_to_role_by_school(request, school_name, role):
+    """
+    Send message to all users with specific role in a specific school (staff only)
+    Headers: User-ID: <user_id>
+    Body: {"text": "message", "attachment": <file>}
+    """
+    user = get_user_from_request(request)
+    if not user:
+        return Response({'error': 'User-ID invalid'}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    # Only staff can send to users by school and role
+    if user.role != 'staff':
+        return Response({'error': 'Permission denied. Only staff can send messages to users by school and role.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Validate role
+    valid_roles = ['parent', 'teacher', 'staff']
+    if role not in valid_roles:
+        return Response({
+            'error': f'Invalid role "{role}". Valid roles are: {", ".join(valid_roles)}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Validate message content
+    serializer = MessageCreateSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get all users with the specified role in the specified school except the sender
+    role_users = User.objects.filter(
+        school__name=school_name,
+        role=role,
+        is_active=True
+    ).exclude(id=user.id)
+    
+    if not role_users.exists():
+        return Response({
+            'error': f'No active {role} users found in school "{school_name}" to send message to'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Create individual conversations with each user
+    conversations_created = []
+    messages_sent = []
+    
+    for recipient in role_users:
+        # Check if private conversation already exists
+        existing_conv = Conversation.objects.filter(
+            conversation_type='private',
+            participants=user
+        ).filter(participants=recipient).first()
+        
+        if existing_conv:
+            conversation = existing_conv
+        else:
+            # Create new private conversation
+            conversation = Conversation.objects.create(
+                conversation_type='private',
+                created_by=user
+            )
+            conversation.participants.add(user, recipient)
+            conversations_created.append(conversation.id)
+        
+        # Send message in the conversation
+        message = Message.objects.create(
+            conversation=conversation,
+            from_user=user,
+            text=serializer.validated_data.get('text', ''),
+            attachment=serializer.validated_data.get('attachment')
+        )
+        
+        # Update conversation timestamp
+        conversation.save()
+        
+        messages_sent.append({
+            'conversation_id': conversation.id,
+            'message_id': message.id,
+            'recipient': recipient.username,
+            'recipient_name': recipient.parent_name or recipient.teacher_name or recipient.staff_name,
+            'recipient_role': recipient.role
+        })
+    
+    return Response({
+        'message': f'Message sent to {len(messages_sent)} {role} users in school "{school_name}"',
+        'school': school_name,
+        'role': role,
+        'total_recipients': len(messages_sent),
+        'conversations_created': len(conversations_created),
+        'messages_sent': messages_sent
+    }, status=status.HTTP_201_CREATED)
