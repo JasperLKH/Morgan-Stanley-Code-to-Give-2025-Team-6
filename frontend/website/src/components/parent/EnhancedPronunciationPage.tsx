@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -7,6 +7,7 @@ import { Progress } from '../ui/progress';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Separator } from '../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { 
   Mic, 
   MicOff, 
@@ -21,10 +22,19 @@ import {
   Star,
   TrendingUp,
   Award,
-  Info
+  Info,
+  Settings,
+  Download,
+  Upload,
+  Headphones,
+  Zap,
+  Brain,
+  Trophy,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
-import { useParentContext } from '../contexts/ParentContext';
-import { toast } from 'sonner';
+import { apiService } from '../../services/api';
+import { useUser } from '../../contexts/UserContext';
 
 interface AssignedWord {
   id: string;
@@ -51,7 +61,7 @@ interface Assignment {
 }
 
 export function EnhancedPronunciationPage() {
-  const { state, t } = useParentContext();
+  const { user: currentUser } = useUser();
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [currentWord, setCurrentWord] = useState('');
@@ -60,11 +70,107 @@ export function EnhancedPronunciationPage() {
   const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null);
   const [selectedWord, setSelectedWord] = useState<AssignedWord | null>(null);
   const [practiceMode, setPracticeMode] = useState<'free' | 'assignment'>('free');
+  const [loading, setLoading] = useState(false);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
 
-  // Mock data for teacher assignments
-  const [assignments, setAssignments] = useState<Assignment[]>([
+  useEffect(() => {
+    const fetchAssignments = async () => {
+      if (!currentUser?.id) return;
+      
+      setLoading(true);
+      try {
+        // Fetch assignments from API
+        const response = await apiService.getUserAssignments(parseInt(currentUser.id));
+        if (response.success && response.data && Array.isArray(response.data)) {
+          // Transform assignments data for pronunciation practice
+          const pronunciationAssignments = transformAssignmentsForPronunciation(response.data);
+          setAssignments(pronunciationAssignments);
+        } else {
+          // Use mock data if API fails
+          setAssignments(mockAssignments);
+        }
+      } catch (error) {
+        console.error('Error fetching assignments:', error);
+        setAssignments(mockAssignments);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssignments();
+  }, [currentUser?.id]);
+
+  const transformAssignmentsForPronunciation = (apiAssignments: any[]): Assignment[] => {
+    return apiAssignments.map((assignment, index) => ({
+      id: assignment.id.toString(),
+      title: assignment.title || 'Pronunciation Practice',
+      teacherName: 'REACH Teacher',
+      dueDate: assignment.due_date,
+      totalWords: 8,
+      completedWords: 0,
+      status: 'active' as const,
+      words: generateWordsForAssignment(assignment.subject, assignment.id)
+    }));
+  };
+
+  const generateWordsForAssignment = (subject: string, assignmentId: number): AssignedWord[] => {
+    const wordSets: Record<string, AssignedWord[]> = {
+      'Mathematics': [
+        {
+          id: `${assignmentId}-1`,
+          word: 'addition',
+          pronunciation: '/əˈdɪʃən/',
+          meaning: 'The process of adding numbers together',
+          example: 'Addition helps us find the total.',
+          difficulty: 'medium',
+          completed: false,
+          attempts: 0
+        }
+      ],
+      'English': [
+        {
+          id: `${assignmentId}-1`,
+          word: 'beautiful',
+          pronunciation: '/ˈbjuːtɪfəl/',
+          meaning: 'Pleasing to look at; attractive',
+          example: 'The sunset is beautiful tonight.',
+          difficulty: 'medium',
+          completed: false,
+          attempts: 0
+        }
+      ]
+    };
+
+    return wordSets[subject] || mockWords;
+  };
+
+  // Mock data for development
+  const mockWords: AssignedWord[] = [
+    {
+      id: '1',
+      word: 'apple',
+      pronunciation: '/ˈæpəl/',
+      meaning: 'A round fruit with red or green skin',
+      example: 'I eat an apple every day.',
+      difficulty: 'easy',
+      completed: false,
+      attempts: 0
+    },
+    {
+      id: '2',
+      word: 'beautiful',
+      pronunciation: '/ˈbjuːtɪfəl/',
+      meaning: 'Pleasing to look at; attractive',
+      example: 'The sunset is beautiful tonight.',
+      difficulty: 'medium',
+      completed: false,
+      attempts: 0
+    }
+  ];
+
+  const mockAssignments: Assignment[] = [
     {
       id: '1',
       title: 'Weekly Vocabulary Practice',
@@ -73,119 +179,9 @@ export function EnhancedPronunciationPage() {
       totalWords: 8,
       completedWords: 3,
       status: 'active',
-      words: [
-        {
-          id: '1',
-          word: 'apple',
-          pronunciation: '/ˈæpəl/',
-          meaning: 'A round fruit with red or green skin',
-          example: 'I eat an apple every day.',
-          difficulty: 'easy',
-          completed: true,
-          attempts: 2,
-          lastAttempt: '2024-08-25',
-          score: 85
-        },
-        {
-          id: '2',
-          word: 'beautiful',
-          pronunciation: '/ˈbjuːtɪfəl/',
-          meaning: 'Pleasing to look at; attractive',
-          example: 'The sunset is beautiful tonight.',
-          difficulty: 'medium',
-          completed: true,
-          attempts: 3,
-          lastAttempt: '2024-08-25',
-          score: 92
-        },
-        {
-          id: '3',
-          word: 'elephant',
-          pronunciation: '/ˈeləfənt/',
-          meaning: 'A large African or Asian mammal',
-          example: 'The elephant is very big.',
-          difficulty: 'medium',
-          completed: true,
-          attempts: 1,
-          lastAttempt: '2024-08-24',
-          score: 78
-        },
-        {
-          id: '4',
-          word: 'playground',
-          pronunciation: '/ˈpleɪɡraʊnd/',
-          meaning: 'An area designed for children to play',
-          example: 'Children play at the playground.',
-          difficulty: 'easy',
-          completed: false,
-          attempts: 0
-        },
-        {
-          id: '5',
-          word: 'butterfly',
-          pronunciation: '/ˈbʌtərflaɪ/',
-          meaning: 'A flying insect with colorful wings',
-          example: 'The butterfly has pretty wings.',
-          difficulty: 'medium',
-          completed: false,
-          attempts: 1,
-          score: 65
-        },
-        {
-          id: '6',
-          word: 'umbrella',
-          pronunciation: '/ʌmˈbrelə/',
-          meaning: 'A device used to protect from rain',
-          example: 'Use an umbrella when it rains.',
-          difficulty: 'medium',
-          completed: false,
-          attempts: 0
-        },
-        {
-          id: '7',
-          word: 'rainbow',
-          pronunciation: '/ˈreɪnboʊ/',
-          meaning: 'An arc of colors in the sky',
-          example: 'Look at the rainbow after the rain.',
-          difficulty: 'easy',
-          completed: false,
-          attempts: 0
-        },
-        {
-          id: '8',
-          word: 'adventure',
-          pronunciation: '/ədˈventʃər/',
-          meaning: 'An exciting or remarkable experience',
-          example: 'Reading is a great adventure.',
-          difficulty: 'hard',
-          completed: false,
-          attempts: 0
-        }
-      ]
-    },
-    {
-      id: '2',
-      title: 'Animal Names',
-      teacherName: 'Mr. Chen',
-      dueDate: '2024-09-05',
-      totalWords: 6,
-      completedWords: 0,
-      status: 'active',
-      words: [
-        {
-          id: '9',
-          word: 'tiger',
-          pronunciation: '/ˈtaɪɡər/',
-          meaning: 'A large wild cat with orange and black stripes',
-          example: 'The tiger is a fierce animal.',
-          difficulty: 'easy',
-          completed: false,
-          attempts: 0
-        }
-        // ... more words would be here
-      ]
+      words: mockWords
     }
-  ]);
+  ];
 
   const startRecording = async () => {
     try {
@@ -206,7 +202,7 @@ export function EnhancedPronunciationPage() {
       mediaRecorder.current.start();
       setIsRecording(true);
     } catch (error) {
-      toast.error('Unable to access microphone. Please check permissions.');
+      console.error('Unable to access microphone. Please check permissions.');
     }
   };
 
@@ -270,7 +266,7 @@ export function EnhancedPronunciationPage() {
     const utterance = new SpeechSynthesisUtterance(word);
     utterance.rate = 0.8;
     speechSynthesis.speak(utterance);
-    toast.success(`Playing pronunciation for: ${word}`);
+    console.log(`Playing pronunciation for: ${word}`);
   };
 
   const resetRecording = () => {
@@ -301,10 +297,10 @@ export function EnhancedPronunciationPage() {
       <div className="text-center space-y-2">
         <h1 className="text-2xl text-gray-900 flex items-center justify-center gap-2">
           <Mic className="w-6 h-6 text-primary" />
-          {t('pronunciation.title', 'Pronunciation Practice')}
+          Pronunciation Practice
         </h1>
         <p className="text-gray-600">
-          {t('pronunciation.subtitle', 'Practice speaking words and improve your pronunciation')}
+          Practice speaking words and improve your pronunciation
         </p>
       </div>
 
