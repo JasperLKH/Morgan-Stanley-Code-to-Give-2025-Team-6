@@ -110,8 +110,8 @@ export function QuestionnaireManager({ user }: QuestionnaireManagerProps) {
         }
       ],
       status: 'active',
-      createdAt: '2024-01-15',
-      updatedAt: '2024-01-15',
+      createdAt: '2025-08-15',
+      updatedAt: '2025-08-15',
       targetParents: ['1', '2', '4'],
       responses: 2,
       totalSent: 3
@@ -136,8 +136,8 @@ export function QuestionnaireManager({ user }: QuestionnaireManagerProps) {
         }
       ],
       status: 'draft',
-      createdAt: '2024-01-20',
-      updatedAt: '2024-01-20',
+      createdAt: '2025-08-20',
+      updatedAt: '2025-08-20',
       targetParents: [],
       responses: 0,
       totalSent: 0
@@ -151,7 +151,7 @@ export function QuestionnaireManager({ user }: QuestionnaireManagerProps) {
       parentId: '1',
       parentName: 'Sarah Chen',
       childName: 'Emma Chen',
-      submittedAt: '2024-01-16 10:30 AM',
+      submittedAt: '2025-08-16 10:30 AM',
       answers: {
         'q1': 'opt2',
         'q2': 4,
@@ -164,7 +164,7 @@ export function QuestionnaireManager({ user }: QuestionnaireManagerProps) {
       parentId: '2',
       parentName: 'Lisa Wong',
       childName: 'Alex Wong',
-      submittedAt: '2024-01-17 2:15 PM',
+      submittedAt: '2025-08-17 2:15 PM',
       answers: {
         'q1': 'opt3',
         'q2': 3,
