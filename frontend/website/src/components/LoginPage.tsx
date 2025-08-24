@@ -21,30 +21,26 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(''); // Add error state
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
 
     // Simulate login - in real app, this would call an API
     setTimeout(() => {
-      let user: User | null = null;
-
-      if (username === 'parent1' && password === 'demo') {
+      let user: User;
+      
+      if (username === 'parent1') {
         user = { id: '1', name: 'Sarah Chen', role: 'parent', childName: 'Emma Chen' };
-      } else if (username === 'teacher1' && password === 'demo') {
+      } else if (username === 'teacher1') {
         user = { id: '2', name: 'Miss Wong', role: 'teacher' };
-      } else if (username === 'staff1' && password === 'demo') {
+      } else if (username === 'staff1') {
         user = { id: '3', name: 'David Lee', role: 'staff' };
-      }
-
-      if (user) {
-        onLogin(user);
       } else {
-        setError('Invalid username or password');
+        user = { id: '1', name: 'Sarah Chen', role: 'parent', childName: 'Emma Chen' };
       }
+      
+      onLogin(user);
       setLoading(false);
     }, 1000);
   };
@@ -134,9 +130,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <CardDescription>Sign in to access your account</CardDescription>
           </CardHeader>
           <CardContent>
-            {error && (
-              <div className="text-red-600 text-center text-m mb-2">{error}</div>
-            )}
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>

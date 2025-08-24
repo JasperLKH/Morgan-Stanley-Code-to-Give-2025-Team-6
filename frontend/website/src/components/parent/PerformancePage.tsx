@@ -4,20 +4,11 @@ import { Progress } from '../ui/progress';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { useParentContext } from '../contexts/ParentContext';
 import { TrendingUp, Star, Target, BookOpen, Calculator, Palette, Award } from 'lucide-react';
 
-interface User {
-  id: string;
-  name: string;
-  role: string;
-  childName?: string;
-}
-
-interface PerformancePageProps {
-  user: User;
-}
-
-export function PerformancePage({ user }: PerformancePageProps) {
+export function PerformancePage() {
+  const { state, t } = useParentContext();
   const [selectedPeriod, setSelectedPeriod] = useState('month');
 
   // Mock data for charts
@@ -29,17 +20,45 @@ export function PerformancePage({ user }: PerformancePageProps) {
   ];
 
   const subjectProgress = [
-    { subject: 'Mathematics', current: 80, target: 85, color: '#3b82f6' },
-    { subject: 'Reading', current: 85, target: 90, color: '#10b981' },
-    { subject: 'Art & Creativity', current: 88, target: 85, color: '#f59e0b' },
-    { subject: 'Social Skills', current: 75, target: 80, color: '#8b5cf6' },
+    { subject: 'Mathematics', subjectZh: '數學', current: 80, target: 85, color: '#3b82f6' },
+    { subject: 'Reading', subjectZh: '閱讀', current: 85, target: 90, color: '#10b981' },
+    { subject: 'Art & Creativity', subjectZh: '藝術創作', current: 88, target: 85, color: '#f59e0b' },
+    { subject: 'Social Skills', subjectZh: '社交技能', current: 75, target: 80, color: '#8b5cf6' },
   ];
 
   const recentAchievements = [
-    { title: 'Reading Streak', description: '7 days of daily reading', icon: BookOpen, color: 'green' },
-    { title: 'Math Master', description: 'Completed all addition exercises', icon: Calculator, color: 'blue' },
-    { title: 'Creative Artist', description: 'Excellent color recognition', icon: Palette, color: 'yellow' },
-    { title: 'Star Student', description: 'Earned 50 total stars', icon: Star, color: 'purple' },
+    { 
+      title: 'Reading Streak', 
+      titleZh: '閱讀連勝', 
+      description: '7 days of daily reading', 
+      descriptionZh: '連續7天每日閱讀',
+      icon: BookOpen, 
+      color: 'green' 
+    },
+    { 
+      title: 'Math Master', 
+      titleZh: '數學大師', 
+      description: 'Completed all addition exercises', 
+      descriptionZh: '完成所有加法練習',
+      icon: Calculator, 
+      color: 'blue' 
+    },
+    { 
+      title: 'Creative Artist', 
+      titleZh: '創意藝術家', 
+      description: 'Excellent color recognition', 
+      descriptionZh: '優秀的顏色識別',
+      icon: Palette, 
+      color: 'yellow' 
+    },
+    { 
+      title: 'Star Student', 
+      titleZh: '明星學生', 
+      description: 'Earned 50 total stars', 
+      descriptionZh: '獲得50顆星',
+      icon: Star, 
+      color: 'purple' 
+    },
   ];
 
   const weeklyStats = {
@@ -54,8 +73,8 @@ export function PerformancePage({ user }: PerformancePageProps) {
     <div className="p-4 space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-xl text-gray-900">Progress Report</h2>
-        <p className="text-sm text-gray-600">{user.childName}'s learning journey</p>
+        <h2 className="text-xl text-gray-900">{t('performance.title', 'Progress Report')}</h2>
+        <p className="text-sm text-gray-600">{state.user.childName}{t('performance.learningJourney', "'s learning journey")}</p>
       </div>
 
       {/* Overall Stats */}
@@ -66,7 +85,7 @@ export function PerformancePage({ user }: PerformancePageProps) {
               <TrendingUp className="w-5 h-5 text-blue-600" />
             </div>
             <p className="text-2xl text-gray-900">{weeklyStats.averageScore}%</p>
-            <p className="text-xs text-gray-600">Average Score</p>
+            <p className="text-xs text-gray-600">{t('performance.averageScore', 'Average Score')}</p>
           </CardContent>
         </Card>
         
@@ -76,7 +95,7 @@ export function PerformancePage({ user }: PerformancePageProps) {
               <Star className="w-5 h-5 text-yellow-600" />
             </div>
             <p className="text-2xl text-gray-900">{weeklyStats.starsEarned}</p>
-            <p className="text-xs text-gray-600">Stars This Week</p>
+            <p className="text-xs text-gray-600">{t('performance.starsThisWeek', 'Stars This Week')}</p>
           </CardContent>
         </Card>
       </div>
@@ -84,7 +103,7 @@ export function PerformancePage({ user }: PerformancePageProps) {
       {/* Progress Chart */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Learning Progress</CardTitle>
+          <CardTitle className="text-lg">{t('performance.learningProgress', 'Learning Progress')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-48">
@@ -101,15 +120,15 @@ export function PerformancePage({ user }: PerformancePageProps) {
           <div className="flex justify-center space-x-4 mt-4">
             <div className="flex items-center space-x-1">
               <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-              <span className="text-xs text-gray-600">Math</span>
+              <span className="text-xs text-gray-600">{t('performance.math', 'Math')}</span>
             </div>
             <div className="flex items-center space-x-1">
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-xs text-gray-600">Reading</span>
+              <span className="text-xs text-gray-600">{t('performance.reading', 'Reading')}</span>
             </div>
             <div className="flex items-center space-x-1">
               <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-              <span className="text-xs text-gray-600">Art</span>
+              <span className="text-xs text-gray-600">{t('performance.art', 'Art')}</span>
             </div>
           </div>
         </CardContent>
@@ -120,21 +139,23 @@ export function PerformancePage({ user }: PerformancePageProps) {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center space-x-2">
             <Target className="w-5 h-5 text-green-600" />
-            <span>Subject Performance</span>
+            <span>{t('performance.subjectPerformance', 'Subject Performance')}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {subjectProgress.map((subject, index) => (
             <div key={index} className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-900">{subject.subject}</span>
+                <span className="text-sm text-gray-900">
+                  {state.language === 'zh' ? subject.subjectZh : subject.subject}
+                </span>
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">{subject.current}%</span>
                   <Badge 
                     variant={subject.current >= subject.target ? "default" : "secondary"}
                     className={subject.current >= subject.target ? "bg-green-500" : "bg-gray-200 text-gray-700"}
                   >
-                    Target: {subject.target}%
+                    {t('performance.target', 'Target')}: {subject.target}%
                   </Badge>
                 </div>
               </div>
@@ -149,7 +170,7 @@ export function PerformancePage({ user }: PerformancePageProps) {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center space-x-2">
             <Award className="w-5 h-5 text-purple-600" />
-            <span>Recent Achievements</span>
+            <span>{t('performance.recentAchievements', 'Recent Achievements')}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -168,8 +189,12 @@ export function PerformancePage({ user }: PerformancePageProps) {
                   <Icon className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-900">{achievement.title}</p>
-                  <p className="text-xs text-gray-600">{achievement.description}</p>
+                  <p className="text-sm text-gray-900">
+                    {state.language === 'zh' ? achievement.titleZh : achievement.title}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    {state.language === 'zh' ? achievement.descriptionZh : achievement.description}
+                  </p>
                 </div>
               </div>
             );
@@ -180,23 +205,23 @@ export function PerformancePage({ user }: PerformancePageProps) {
       {/* Weekly Summary */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">This Week's Summary</CardTitle>
+          <CardTitle className="text-lg">{t('performance.weeklySummary', "This Week's Summary")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center p-3 bg-blue-50 rounded-lg">
               <p className="text-2xl text-blue-600">{weeklyStats.completedAssignments}/{weeklyStats.totalAssignments}</p>
-              <p className="text-xs text-blue-800">Assignments Done</p>
+              <p className="text-xs text-blue-800">{t('performance.assignmentsDone', 'Assignments Done')}</p>
             </div>
             <div className="text-center p-3 bg-orange-50 rounded-lg">
               <p className="text-2xl text-orange-600">{weeklyStats.streakDays}</p>
-              <p className="text-xs text-orange-800">Day Streak</p>
+              <p className="text-xs text-orange-800">{t('performance.dayStreak', 'Day Streak')}</p>
             </div>
           </div>
           
           <div className="mt-4 p-3 bg-green-50 rounded-lg">
             <p className="text-sm text-green-800 text-center">
-              Excellent progress this week! {user.childName} is showing great improvement in all subjects.
+              {t('performance.excellentProgress', 'Excellent progress this week!')} {state.user.childName} {t('performance.greatImprovement', 'is showing great improvement in all subjects.')}
             </p>
           </div>
         </CardContent>

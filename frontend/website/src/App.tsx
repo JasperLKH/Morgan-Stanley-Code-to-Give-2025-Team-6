@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LoginPage } from './components/LoginPage';
-import { ParentApp } from './components/ParentApp';
+import { SimplifiedParentApp } from './components/SimplifiedParentApp';
 import { StaffApp } from './components/StaffApp';
 import { TeacherApp } from './components/TeacherApp';
 
@@ -30,7 +30,7 @@ export default function App() {
 
   switch (user.role) {
     case 'parent':
-      return <ParentApp user={user} onLogout={handleLogout} />;
+      return <SimplifiedParentApp user={user} onLogout={handleLogout} />;
     case 'staff':
       return <StaffApp user={user} onLogout={handleLogout} />;
     case 'teacher':

@@ -147,17 +147,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-4">
-        <Button className="h-16 flex-col space-y-1 bg-blue-600 hover:bg-blue-700">
-          <BookOpen className="w-5 h-5" />
-          <span className="text-sm">Create Assignment</span>
-        </Button>
-        <Button variant="outline" className="h-16 flex-col space-y-1">
-          <Users className="w-5 h-5" />
-          <span className="text-sm">Add Family</span>
-        </Button>
-      </div>
+
     </div>
   );
 }

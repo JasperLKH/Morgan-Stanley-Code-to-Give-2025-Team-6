@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback } from './ui/avatar';
@@ -92,112 +92,39 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
     }
   ]);
 
-  // const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const students: Student[] = [
+    {
+      id: '1',
+      name: 'Emma Chen',
+      parentName: 'Sarah Chen',
+      averageScore: 88,
+      completedAssignments: 12,
+      totalAssignments: 15,
+      recentFeedback: 'Excellent progress in reading comprehension. Keep up the great work!',
+      status: 'excellent',
+    },
+    {
+      id: '2',
+      name: 'Alex Wong',
+      parentName: 'Lisa Wong',
+      averageScore: 75,
+      completedAssignments: 8,
+      totalAssignments: 12,
+      recentFeedback: 'Good effort in math activities. Could benefit from more practice with addition.',
+      status: 'good',
+    },
+    {
+      id: '3',
+      name: 'Sophie Lee',
+      parentName: 'David Lee',
+      averageScore: 65,
+      completedAssignments: 5,
+      totalAssignments: 8,
+      recentFeedback: 'Shows creativity in art activities but needs encouragement with reading tasks.',
+      status: 'needs_attention',
+    },
+  ];
 
-  // useEffect(() => {
-  //   fetch('http://localhost:8000/chat/messages/')
-  //     .then((response) => response.json())
-  //     .then((data) => setChatMessages(data))
-  //     .catch((error) => console.error('Error fetching chat messages:', error));
-  // }, []);
-
-  // sample data
-  // const students: Student[] = [
-  //   {
-  //     id: '1',
-  //     name: 'Emma Chen',
-  //     parentName: 'Sarah Chen',
-  //     averageScore: 88,
-  //     completedAssignments: 12,
-  //     totalAssignments: 15,
-  //     recentFeedback: 'Excellent progress in reading comprehension. Keep up the great work!',
-  //     status: 'excellent',
-  //   },
-  //   {
-  //     id: '2',
-  //     name: 'Alex Wong',
-  //     parentName: 'Lisa Wong',
-  //     averageScore: 75,
-  //     completedAssignments: 8,
-  //     totalAssignments: 12,
-  //     recentFeedback: 'Good effort in math activities. Could benefit from more practice with addition.',
-  //     status: 'good',
-  //   },
-  //   {
-  //     id: '3',
-  //     name: 'Sophie Lee',
-  //     parentName: 'David Lee',
-  //     averageScore: 65,
-  //     completedAssignments: 5,
-  //     totalAssignments: 8,
-  //     recentFeedback: 'Shows creativity in art activities but needs encouragement with reading tasks.',
-  //     status: 'needs_attention',
-  //   },
-  // ];
-
-  // students fetched from backend, created by julian
-  const [students, setStudents] = useState<Student[]>([]);
-
-  /**
-   * What is this doing?
-   * -------------------
-   * The code below runs once when your component loads (because of the empty dependency array `[]`).
-   * It fetches data from your backend at http://localhost:8000/account/users/.
-   * When the data is received, it parses the JSON and puts the result into your `students` state variable.
-   * 
-   * However, the data you get from the backend is not a list of students directly.
-   * Instead, you get an object with a "users" array inside it, and each user has fields like "children_name".
-   * 
-   * What do I do next?
-   * ------------------
-   * 1. You need to extract the "users" array from the response.
-   * 2. You need to decide what you want to display as a "student". In your sample data, a student has a name, parentName, etc.
-   *    In your backend data, "children_name" is the student's name, and "parent_name" is the parent's name.
-   * 3. You probably want to filter out users that don't have a "children_name" (since only parents have children).
-   * 4. You can then map this data into the format you want for display.
-   * 
-   * Here is how you can update your code:
-   */
-  useEffect(() => {
-    fetch('http://localhost:8000/account/users/')
-      .then((response) => response.json())
-      .then((data) => {
-        // Extract the users array
-        const users = data.users || [];
-        // Filter for users that have a children_name (i.e., students)
-        const studentsList = users
-          .filter(user => user.children_name) // only users with a student
-          .map(user => ({
-            id: user.id,
-            name: user.children_name,
-            parentName: user.parent_name,
-            // You can add more fields here if you want, or set defaults
-            averageScore: user.points || 0, // or some other logic
-            completedAssignments: 0, // backend doesn't provide, so set to 0 or fetch elsewhere
-            totalAssignments: 0,     // backend doesn't provide, so set to 0 or fetch elsewhere
-            recentFeedback: '',      // backend doesn't provide, so set to empty or fetch elsewhere
-            status: user.is_active ? 'active' : 'inactive', // or your own logic
-          }));
-        setStudents(studentsList);
-      })
-      .catch((error) => console.error('Error fetching students:', error));
-  }, []);
-  /**
-   * Now, in your JSX, you can display the students like this:
-   * 
-   * <ul>
-   *   {students.map(student => (
-   *     <li key={student.id}>
-   *       <strong>{student.name}</strong> (Parent: {student.parentName})<br />
-   *       Status: {student.status}
-   *     </li>
-   *   ))}
-   * </ul>
-   * 
-   * You can add more fields as you get more data from your backend.
-   */
-
-  // // sample data
   const assignments: Assignment[] = [
     {
       id: '1',
@@ -245,17 +172,6 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
     }
   ];
 
-  // // assignments fetched from backend, created by julian
-  // const [assignments, setAssignments] = useState<Assignment[]>([]);
-
-  // useEffect(() => {
-  //   fetch('http://localhost:8000/assignments/')
-  //     .then((response) => response.json())
-  //     .then((data) => setAssignments(data))
-  //     .catch((error) => console.error('Error fetching assignments:', error));
-  // }, []);
-
-  // sample data
   const sendMessage = () => {
     if (chatMessage.trim()) {
       const newMessage: ChatMessage = {
@@ -317,9 +233,9 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
 
   const classStats = {
     totalStudents: students.length,
-    averageCompletion: students.length > 0 ? Math.round(students.reduce((acc, student) => 
-      acc + (student.completedAssignments / student.totalAssignments), 0) / students.length * 100) : 0,
-    averageScore: students.length > 0 ? Math.round(students.reduce((acc, student) => acc + student.averageScore, 0) / students.length) : 0,
+    averageCompletion: Math.round(students.reduce((acc, student) => 
+      acc + (student.completedAssignments / student.totalAssignments), 0) / students.length * 100),
+    averageScore: Math.round(students.reduce((acc, student) => acc + student.averageScore, 0) / students.length),
   };
 
   return (
