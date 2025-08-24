@@ -20,15 +20,32 @@ import { useParentContext } from "../contexts/ParentContext";
 
 interface ForumPost {
   id: number;
-  title: string;
+  title?: string;
   content: string;
-  author: {
+  posted_by: {
+    id: number;
+    username: string;
+    role: string;
+  };
+  posted_by_name: string;
+  posted_at: string;
+  status?: string;
+  status_display?: string;
+  is_pinned?: boolean;
+  attachments?: any[];
+  comments?: any[];
+  likes?: any[];
+  total_likes: number;
+  total_comments: number;
+  is_liked_by_user: boolean;
+  category?: string;
+  // Legacy fields for backward compatibility
+  author?: {
     id: number;
     username: string;
     name: string;
   };
-  created_at: string;
-  category?: string;
+  created_at?: string;
   likes_count?: number;
   comments_count?: number;
   liked_by_user?: boolean;
@@ -49,9 +66,6 @@ export function CommunityForumPage() {
   const { state } = useParentContext();
   const currentUser = state.user;
   
-  // Log user ID for debugging
-  console.log('CommunityForumPage - Current User ID:', currentUser?.id);
-  
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [comments, setComments] = useState<Record<number, Comment[]>>({});
   const [loading, setLoading] = useState(true);
@@ -70,17 +84,11 @@ export function CommunityForumPage() {
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const response = await apiService.getForumPosts();
-      if (response.success && response.data && Array.isArray(response.data)) {
-        setPosts(response.data as ForumPost[]);
-      } else {
-        // Use mock data if API fails or data is not an array
-        console.log('API failed or returned non-array data, using mock data');
-        setPosts(mockPosts);
-      }
+      // Use mock data directly as requested by user
+      console.log('Using mock data for forum posts');
+      setPosts(mockPosts);
     } catch (error) {
-      console.error('Error fetching forum posts:', error);
-      // Use mock data as fallback
+      console.error('Error loading forum posts:', error);
       setPosts(mockPosts);
     } finally {
       setLoading(false);
@@ -93,46 +101,49 @@ export function CommunityForumPage() {
       id: 1,
       title: "Welcome to the REACH Community Forum!",
       content: "This is a space for parents and teachers to connect, share experiences, and support each other in our children's learning journey.",
-      author: {
+      posted_by: {
         id: 1,
         username: "admin",
-        name: "REACH Admin"
+        role: "staff"
       },
-      created_at: new Date().toISOString(),
+      posted_by_name: "REACH Admin",
+      posted_at: new Date().toISOString(),
       category: "general",
-      likes_count: 5,
-      comments_count: 3,
-      liked_by_user: false
+      total_likes: 5,
+      total_comments: 3,
+      is_liked_by_user: false
     },
     {
       id: 2,
       title: "Tips for Helping Kids with Homework",
       content: "Here are some effective strategies I've found helpful when my child struggles with homework assignments...",
-      author: {
+      posted_by: {
         id: 2,
         username: "parent_sarah",
-        name: "Sarah Chen"
+        role: "parent"
       },
-      created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+      posted_by_name: "Sarah Chen",
+      posted_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
       category: "tips",
-      likes_count: 12,
-      comments_count: 8,
-      liked_by_user: true
+      total_likes: 12,
+      total_comments: 8,
+      is_liked_by_user: true
     },
     {
       id: 3,
       title: "Celebrating Small Wins",
       content: "My daughter just completed her first week of assignments! So proud of her progress. What achievements are you celebrating?",
-      author: {
+      posted_by: {
         id: 3,
         username: "proud_parent",
-        name: "Mike Johnson"
+        role: "parent"
       },
-      created_at: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+      posted_by_name: "Mike Johnson",
+      posted_at: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
       category: "achievements",
-      likes_count: 18,
-      comments_count: 15,
-      liked_by_user: false
+      total_likes: 18,
+      total_comments: 15,
+      is_liked_by_user: false
     }
   ];
 
@@ -195,9 +206,13 @@ export function CommunityForumPage() {
   };
 
   const filteredPosts = Array.isArray(posts) ? posts.filter(post => {
-    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         post.content.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || post.category === selectedCategory;
+    const title = post.title || '';
+    const content = post.content || '';
+    const category = post.category || '';
+    
+    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         content.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || category === selectedCategory;
     return matchesSearch && matchesCategory;
   }) : [];
 
@@ -362,11 +377,11 @@ export function CommunityForumPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {post.author?.name || post.author?.username || 'Anonymous'}
+                        {post.posted_by_name || post.author?.name || post.posted_by?.username || 'Anonymous'}
                       </p>
                       <div className="flex items-center space-x-2 text-xs text-gray-500">
                         <Clock className="w-3 h-3" />
-                        <span>{formatTimeAgo(post.created_at)}</span>
+                        <span>{formatTimeAgo(post.posted_at || post.created_at || '')}</span>
                         {post.category && (
                           <Badge variant="secondary" className="text-xs">
                             {post.category.replace('-', ' ')}
@@ -378,7 +393,7 @@ export function CommunityForumPage() {
                 </div>
                 
                 <div className="mb-3">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">{post.title}</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">{post.title || 'Untitled Post'}</h3>
                   <p className="text-gray-600 text-sm line-clamp-3">{post.content}</p>
                 </div>
                 
@@ -390,8 +405,8 @@ export function CommunityForumPage() {
                       onClick={() => handleLikePost(post.id)}
                       className="flex items-center space-x-1"
                     >
-                      <Heart className={`w-4 h-4 ${post.liked_by_user ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
-                      <span className="text-sm">{post.likes_count || 0}</span>
+                      <Heart className={`w-4 h-4 ${(post.is_liked_by_user || post.liked_by_user) ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+                      <span className="text-sm">{post.total_likes || post.likes_count || 0}</span>
                     </Button>
                     
                     <Button
@@ -401,7 +416,7 @@ export function CommunityForumPage() {
                       className="flex items-center space-x-1"
                     >
                       <MessageSquare className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm">{post.comments_count || 0}</span>
+                      <span className="text-sm">{post.total_comments || post.comments_count || 0}</span>
                     </Button>
                   </div>
                   

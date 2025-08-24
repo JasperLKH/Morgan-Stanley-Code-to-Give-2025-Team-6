@@ -7,16 +7,39 @@ interface ApiResponse<T> {
 }
 
 class ApiService {
+  private getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    
+    // Try to get user from localStorage
+    try {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        if (user && user.id) {
+          headers['User-ID'] = user.id.toString();
+        }
+      }
+    } catch (error) {
+      console.error('Error getting user from localStorage:', error);
+    }
+    
+    return headers;
+  }
+
   private async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
+      const authHeaders = this.getAuthHeaders();
+      const finalHeaders = {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+        ...options.headers,
+      };
+      
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers: finalHeaders,
         ...options,
       });
 
@@ -66,10 +89,11 @@ class ApiService {
   }
 
   async submitAssignment(assignmentId: number, formData: FormData) {
+    const authHeaders = this.getAuthHeaders();
     return this.makeRequest(`/assignments/${assignmentId}/submit/`, {
       method: 'POST',
       body: formData,
-      headers: {}, // Remove Content-Type for FormData
+      headers: authHeaders, // Only include auth headers, not Content-Type for FormData
     });
   }
 
@@ -271,11 +295,8 @@ class ApiService {
   }
 
   async createReward(rewardData: any, userId?: string) {
-    const headers: any = {};
-    if (userId) {
-      headers['User-ID'] = userId;
-    }
-    // Mock reward creation
+    // Note: userId parameter is kept for compatibility but User-ID header 
+    // will be automatically added by getAuthHeaders()
     return Promise.resolve({
       success: true,
       data: {

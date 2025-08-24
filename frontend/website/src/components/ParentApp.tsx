@@ -3,7 +3,7 @@ import { Home, Users, BookOpen, TrendingUp, MessageCircle, LogOut } from 'lucide
 import { Button } from './ui/button';
 import { HelpDialog } from './HelpDialog';
 import { ParentHome } from './parent/ParentHome';
-import { CommunityForum } from './parent/CommunityForum';
+import { CommunityForumPage } from './parent/CommunityForumPage';
 import { AssignmentsPage } from './parent/AssignmentsPage';
 import { PerformancePage } from './parent/PerformancePage';
 import { ChatPage } from './parent/ChatPage';
@@ -38,7 +38,7 @@ export function ParentApp({ user, onLogout }: ParentAppProps) {
       case 'home':
         return <ParentHome user={user} />;
       case 'community':
-        return <CommunityForum user={user} />;
+        return <CommunityForumPage />;
       case 'assignments':
         return <AssignmentsPage user={user} />;
       case 'performance':
