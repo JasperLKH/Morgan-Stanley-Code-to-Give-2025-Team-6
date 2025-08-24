@@ -9,6 +9,7 @@ import { Input } from '../ui/input';
 import {
   Calendar, Clock, ArrowLeft, FileText, FileCheck2, Users, Star, MessageCircle,
 } from 'lucide-react';
+import { useTeacherContext } from '../contexts/TeacherContext';
 
 /* ---- Types copied from Staff so shape & labels are identical ---- */
 type AssignmentType = 'reading' | 'math' | 'writing' | 'art';
@@ -86,6 +87,12 @@ const getStatusColor = (status?: string) => {
 };
 
 export function TeacherAssignments() {
+  const { state } = useTeacherContext();
+  const currentUser = state.user;
+  
+  // Log user ID for debugging
+  console.log('TeacherAssignments - Current User ID:', currentUser?.id);
+  
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissionsByAssignment, setSubmissionsByAssignment] = useState<Record<number, Submission[]>>({});
   const [loading, setLoading] = useState(false);
