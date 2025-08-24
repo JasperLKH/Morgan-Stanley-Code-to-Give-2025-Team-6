@@ -26,4 +26,5 @@ urlpatterns = [
     path('account/', include('account.urls')),
     path('assignments/', include(('assignmentapp.urls', 'assignmentapp'), namespace='assignmentapp')),
     path('chat/', include('chatapp.urls')),
+    path('forum/', include(('forumapp.urls', 'forumapp'), namespace='forumapp')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

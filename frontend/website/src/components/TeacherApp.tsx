@@ -228,71 +228,122 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
   /** -------- Students (from /account/users/) -------- */
   const [students, setStudents] = useState<Student[]>([]);
 
+  /**
+   * What is this doing?
+   * -------------------
+   * The code below runs once when your component loads (because of the empty dependency array `[]`).
+   * It fetches data from your backend at http://localhost:8000/account/users/.
+   * When the data is received, it parses the JSON and puts the result into your `students` state variable.
+   * 
+   * However, the data you get from the backend is not a list of students directly.
+   * Instead, you get an object with a "users" array inside it, and each user has fields like "children_name".
+   * 
+   * What do I do next?
+   * ------------------
+   * 1. You need to extract the "users" array from the response.
+   * 2. You need to decide what you want to display as a "student". In your sample data, a student has a name, parentName, etc.
+   *    In your backend data, "children_name" is the student's name, and "parent_name" is the parent's name.
+   * 3. You probably want to filter out users that don't have a "children_name" (since only parents have children).
+   * 4. You can then map this data into the format you want for display.
+   * 
+   * Here is how you can update your code:
+   */
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('http://localhost:8000/account/users/');
-        const data = await res.json();
-        const users: any[] = Array.isArray(data?.users) ? data.users : [];
-
-        // Treat each parent as a “student card” for the teacher’s dashboard
-        const mapped: Student[] = users
-          .filter((u) => u.role === 'parent')
-          .map((u) => {
-            const avg = 0; // replace with real field if backend adds it
-            const completed = 0; // "
-            const total = 0; // "
-
-            const status: Student['status'] =
-              avg >= 85 ? 'excellent' : avg >= 70 ? 'good' : 'needs_attention';
-
-            return {
-              id: u.id,
-              name: u.children_name || 'Student',
-              parentName: u.parent_name || u.username || '—',
-              averageScore: avg,
-              completedAssignments: completed,
-              totalAssignments: total,
-              recentFeedback: '', // map a real field when available
-              status,
-            };
-          });
-
-        setStudents(mapped);
-      } catch (err) {
-        console.error('Error fetching students:', err);
-        setStudents([]);
-      }
-    })();
+    fetch('http://localhost:8000/account/users/')
+      .then((response) => response.json())
+      .then((data) => {
+        // Extract the users array
+        const users = data.users || [];
+        // Filter for users that have a children_name (i.e., students)
+        const studentsList = users
+          .filter(user => user.children_name) // only users with a student
+          .map(user => ({
+            id: user.id,
+            name: user.children_name,
+            parentName: user.parent_name,
+            // You can add more fields here if you want, or set defaults
+            averageScore: user.points || 0, // or some other logic
+            completedAssignments: 0, // backend doesn't provide, so set to 0 or fetch elsewhere
+            totalAssignments: 0,     // backend doesn't provide, so set to 0 or fetch elsewhere
+            recentFeedback: '',      // backend doesn't provide, so set to empty or fetch elsewhere
+            status: user.is_active ? 'active' : 'inactive', // or your own logic
+          }));
+        setStudents(studentsList);
+      })
+      .catch((error) => console.error('Error fetching students:', error));
   }, []);
+  /**
+   * Now, in your JSX, you can display the students like this:
+   * 
+   * <ul>
+   *   {students.map(student => (
+   *     <li key={student.id}>
+   *       <strong>{student.name}</strong> (Parent: {student.parentName})<br />
+   *       Status: {student.status}
+   *     </li>
+   *   ))}
+   * </ul>
+   * 
+   * You can add more fields as you get more data from your backend.
+   */
 
-  /** -------- Assignments (example fetch; adapt mapping to your API) -------- */
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  // // sample data
+  const assignments: Assignment[] = [
+    {
+      id: '1',
+      title: 'Read "The Little Red Hen"',
+      type: 'reading',
+      dueDate: 'Dec 25, 2024',
+      totalSubmissions: 15,
+      pendingReview: 3,
+      completedReviews: 12,
+      averageScore: 82,
+      description: 'Students read the story and discuss with parents'
+    },
+    {
+      id: '2',
+      title: 'Practice Writing Numbers 1-5',
+      type: 'writing',
+      dueDate: 'Dec 26, 2024',
+      totalSubmissions: 12,
+      pendingReview: 5,
+      completedReviews: 7,
+      averageScore: 78,
+      description: 'Number tracing and writing practice'
+    },
+    {
+      id: '3',
+      title: 'Counting with Toys',
+      type: 'math',
+      dueDate: 'Dec 27, 2024',
+      totalSubmissions: 18,
+      pendingReview: 1,
+      completedReviews: 17,
+      averageScore: 85,
+      description: 'Count household items and record results'
+    },
+    {
+      id: '4',
+      title: 'Draw a Family Picture',
+      type: 'art',
+      dueDate: 'Dec 28, 2024',
+      totalSubmissions: 8,
+      pendingReview: 8,
+      completedReviews: 0,
+      averageScore: 0,
+      description: 'Create family artwork and discuss relationships'
+    }
+  ];
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('http://localhost:8000/assignments/');
-        const data = await res.json();
-        setAssignments(
-          (Array.isArray(data) ? data : []).map((a: any) => ({
-            id: a.id,
-            title: a.title ?? a.name ?? 'Assignment',
-            type: (a.type as Assignment['type']) ?? 'reading',
-            dueDate: a.dueDate ?? a.due_date ?? '',
-            totalSubmissions: a.totalSubmissions ?? 0,
-            pendingReview: a.pendingReview ?? 0,
-            completedReviews: a.completedReviews ?? 0,
-            averageScore: a.averageScore ?? 0,
-            description: a.description ?? '',
-          }))
-        );
-      } catch (err) {
-        console.error('Error fetching assignments:', err);
-        setAssignments([]);
-      }
-    })();
-  }, []);
+  // // assignments fetched from backend, created by julian
+  // const [assignments, setAssignments] = useState<Assignment[]>([]);
+
+  // useEffect(() => {
+  //   fetch('http://localhost:8000/assignments/')
+  //     .then((response) => response.json())
+  //     .then((data) => setAssignments(data))
+  //     .catch((error) => console.error('Error fetching assignments:', error));
+  // }, []);
 
   /** -------- Helpers -------- */
   const getStatusBadge = (status: string) => {

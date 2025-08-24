@@ -7,7 +7,7 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'role', 'parent_name', 'children_name', 'password', 'school', 'points', 'streaks']
+        fields = ['id', 'username', 'role', 'parent_name', 'children_name', 'staff_name', 'teacher_name', 'password', 'school', 'points', 'streaks']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -44,3 +44,18 @@ class LoginSerializer(serializers.Serializer):
                 raise serializers.ValidationError('Unable to log in with provided credentials.')
         else:
             raise serializers.ValidationError('Must include username and password.')
+
+class UpdateUserNameSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    staff_name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    teacher_name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    parent_name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    
+    def validate(self, data):
+        # Check that at least one name field is provided
+        name_fields = ['staff_name', 'teacher_name', 'parent_name']
+        if not any(field in data for field in name_fields):
+            raise serializers.ValidationError(
+                'At least one name field must be provided (staff_name, teacher_name, or parent_name)'
+            )
+        return data

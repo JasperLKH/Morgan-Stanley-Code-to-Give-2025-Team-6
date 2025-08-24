@@ -1,10 +1,8 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
-from .serializers import UserSerializer, LoginSerializer
+from .serializers import UserSerializer, LoginSerializer, UpdateUserNameSerializer
 from .models import User
-
-
 
 @api_view(['POST'])
 def login(request):
@@ -18,8 +16,11 @@ def login(request):
             'role': user.role,
             'parent_name': user.parent_name,
             'children_name': user.children_name,
+            'staff_name': user.staff_name,
+            'teacher_name': user.teacher_name,
             'school': user.school,
             'points': user.points,
+            'weekly_points': user.weekly_points,
             'streaks': user.current_streak
         }
         
@@ -41,8 +42,11 @@ def signup(request):
             'role': user.role,
             'parent_name': user.parent_name,
             'children_name': user.children_name,
+            'staff_name': user.staff_name,
+            'teacher_name': user.teacher_name,
             'school': user.school,
             'points': user.points,
+            'weekly_points': user.weekly_points,
             'streaks': user.current_streak
         }
         
@@ -74,8 +78,11 @@ def get_all_users(request):
             'role': user.role,
             'parent_name': user.parent_name,
             'children_name': user.children_name,
+            'staff_name': user.staff_name,
+            'teacher_name': user.teacher_name,
             'school': user.school,
             'points': user.points,
+            'weekly_points': user.weekly_points,
             'streaks': user.current_streak,
             'is_active': user.is_active
         }
@@ -109,8 +116,11 @@ def get_user_by_id(request):
         'role': user.role,
         'parent_name': user.parent_name,
         'children_name': user.children_name,
+        'staff_name': user.staff_name,
+        'teacher_name': user.teacher_name,
         'school': user.school,
         'points': user.points,
+        'weekly_points': user.weekly_points,
         'streaks': user.current_streak,
         'is_active': user.is_active
     }
@@ -140,8 +150,11 @@ def get_user_by_school(request):
             'role': user.role,
             'parent_name': user.parent_name,
             'children_name': user.children_name,
+            'staff_name': user.staff_name,
+            'teacher_name': user.teacher_name,
             'school': user.school,
             'points': user.points,
+            'weekly_points': user.weekly_points,
             'streaks': user.current_streak,
             'is_active': user.is_active
         }
@@ -214,4 +227,133 @@ def deactivate_user(request):
         'username': user.username,
         'is_active': user.is_active
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def get_weekly_leaderboard(request):
+    """
+    Get top 5 parents with the highest weekly points.
+    Query params: school=<school_name> (optional - filter by school)
+    """
+    
+    # Get school filter if provided
+    school = request.GET.get('school')
+    
+    # Filter parents only
+    parents = User.objects.filter(role='parent', is_active=True)
+    
+    # Apply school filter if provided
+    if school:
+        parents = parents.filter(school=school)
+    
+    # Order by weekly_points descending and get top 5
+    top_parents = parents.order_by('-weekly_points')[:5]
+    
+    leaderboard_data = []
+    for rank, parent in enumerate(top_parents, 1):
+        parent_data = {
+            'rank': rank,
+            'id': parent.id,
+            'username': parent.username,
+            'parent_name': parent.parent_name,
+            'children_name': parent.children_name,
+            'school': parent.school,
+            'weekly_points': parent.weekly_points,
+            'total_points': parent.points,
+            'current_streak': parent.current_streak
+        }
+        leaderboard_data.append(parent_data)
+    
+    return Response({
+        'leaderboard': leaderboard_data,
+        'total_count': len(leaderboard_data),
+        'school_filter': school if school else 'All schools'
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def reset_weekly_points(request):
+    """
+    Reset all users' weekly points to 0.
+    This can be called weekly by staff to reset the leaderboard.
+    """
+    
+    # Reset weekly points for all users
+    User.objects.all().update(weekly_points=0)
+    
+    return Response({
+        'message': 'Weekly points have been reset for all users.',
+        'reset_count': User.objects.count()
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def update_user_name(request):
+    """
+    Update user's name fields based on their role.
+    Usage: POST /update_user_name/
+    JSON body: {
+        "user_id": <user_id_to_update>,
+        "staff_name": <name_for_staff_role> (optional),
+        "teacher_name": <name_for_teacher_role> (optional),
+        "parent_name": <name_for_parent_role> (optional)
+    }
+    
+    Note: At least one name field must be provided.
+    """
+    
+    serializer = UpdateUserNameSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    validated_data = serializer.validated_data
+    user_id = validated_data['user_id']
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Track what fields were updated
+    updated_fields = []
+    
+    # Update fields based on provided data
+    if 'staff_name' in validated_data:
+        user.staff_name = validated_data['staff_name']
+        updated_fields.append('staff_name')
+    
+    if 'teacher_name' in validated_data:
+        user.teacher_name = validated_data['teacher_name']
+        updated_fields.append('teacher_name')
+    
+    if 'parent_name' in validated_data:
+        user.parent_name = validated_data['parent_name']
+        updated_fields.append('parent_name')
+    
+    # Save the user with updated fields
+    user.save(update_fields=updated_fields)
+    
+    # Return updated user data
+    user_data = {
+        'id': user.id,
+        'username': user.username,
+        'role': user.role,
+        'parent_name': user.parent_name,
+        'children_name': user.children_name,
+        'staff_name': user.staff_name,
+        'teacher_name': user.teacher_name,
+        'school': user.school,
+        'points': user.points,
+        'weekly_points': user.weekly_points,
+        'streaks': user.current_streak,
+        'is_active': user.is_active
+    }
+    
+    return Response({
+        'message': f'Successfully updated {", ".join(updated_fields)} for user {user.username}',
+        'updated_fields': updated_fields,
+        'user': user_data
+    }, status=status.HTTP_200_OK)
+
+
 

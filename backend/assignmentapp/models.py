@@ -12,6 +12,7 @@ class Assignment(models.Model):
     name = models.CharField(max_length=255)
     release_date = models.DateField()
     due_date = models.DateField()
+    points = models.IntegerField(default=10, help_text="Points awarded for completing this assignment")
 
     questions = models.FileField(
         upload_to="assignments/questions/%Y/%m/%d/",
@@ -122,17 +123,28 @@ class AssignmentSubmission(models.Model):
         
         # Update user's streak if applicable
         submitted_day = now.date()
-        self.user.update_streak_on_submission(submitted_on=submitted_day)
+        self.user.update_on_submission(submitted_on=submitted_day, points=self.assignment.points)
 
     def mark_graded(self, score: float | None, feedback: str | None, when: timezone.datetime | None = None) -> None:
         """
         Set status to GRADED and stamp graded_at.
         """
+        was_already_graded = self.status == self.STATUS_GRADED
+        
         self.status = self.STATUS_GRADED
         self.score = score
         self.feedback = feedback
         self.graded_at = when or timezone.now()
         self.save(update_fields=["status", "score", "feedback", "graded_at", "updated_at"])
+        
+        # Award points to user if this is the first time being graded and score is passing
+        if not was_already_graded and score is not None and score >= 70:  # Assuming 70% is passing
+            points_to_award = self.assignment.points
+            if hasattr(self.user, 'points') and self.user.points is not None:
+                self.user.points += points_to_award
+            else:
+                self.user.points = points_to_award
+            self.user.save(update_fields=['points'])
 
 class SubmissionAttachment(models.Model):
     """

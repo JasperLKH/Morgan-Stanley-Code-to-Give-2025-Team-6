@@ -13,10 +13,13 @@ class User(AbstractUser):
     ]
     
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='parent')
+    staff_name = models.CharField(max_length=100, blank=True, null=True)
+    teacher_name = models.CharField(max_length=100, blank=True, null=True)
     parent_name = models.CharField(max_length=100, blank=True, null=True)
     children_name = models.CharField(max_length=100, blank=True, null=True)
     school = models.CharField(max_length=200, blank=True, null=True)
     points = models.IntegerField(default=0, blank=True, null=True)
+    weekly_points = models.IntegerField(default=0, blank=True, null=True)
     streaks = models.IntegerField(default=0, blank=True, null=True)
     last_submission = models.DateField(blank=True, null=True)
 
@@ -44,18 +47,36 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.username} ({self.role})"
     
-    def update_streak_on_submission(self, submitted_on: date | None = None) -> None:
+    def update_on_submission(self, points: int = 0, submitted_on: date | None = None) -> None:
         """
         Call this when a submission is made today (or pass a specific date).
-        If last_submission was exactly yesterday, increment streak; else reset to 1.
+        Updates streak, points, and weekly points all at once.
+        
+        Args:
+            points: Points to add to total points
+            weekly_points: Points to add to weekly points
+            submitted_on: Date of submission (defaults to today)
         """
         today = submitted_on or date.today()
+        
+        # Update streak logic
         if self.last_submission == today - timedelta(days=1):
             self.streaks = (self.streaks or 0) + 1
         else:
             self.streaks = 1
         self.last_submission = today
-        self.save(update_fields=["streaks", "last_submission"])
-    
+        
+        # Update points
+        if points:
+            self.points = (self.points or 0) + points
+            self.weekly_points = (self.weekly_points or 0) + points
+        
+        # Save all changes at once
+        update_fields = ["streaks", "last_submission"]
+        if points:
+            update_fields.append("points")
+            update_fields.append("weekly_points")
+            
+        self.save(update_fields=update_fields)
 
-    
+

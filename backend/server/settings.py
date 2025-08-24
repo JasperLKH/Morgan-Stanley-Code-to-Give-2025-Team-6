@@ -46,7 +46,6 @@ INSTALLED_APPS = [
     'assignmentapp',
     'chatapp',
     'forumapp',
-    'parentapp'
 ]
 
 MIDDLEWARE = [
@@ -136,7 +135,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'account.User'
 
 
-# Allow credentials to be included in CORS requests
+# CORS Settings
+CORS_ALLOW_ALL_ORIGINS = True  # Only for development! Change this in production
 CORS_ALLOW_CREDENTIALS = True
 
 # Allow all headers for development

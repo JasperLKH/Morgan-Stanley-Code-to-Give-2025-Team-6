@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Conversation, Message
+from .models import Conversation, Message, Questionnaire
 
 
 @admin.register(Conversation)
@@ -59,3 +59,33 @@ class MessageAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Optimize queryset with select_related."""
         return super().get_queryset(request).select_related('conversation', 'from_user')
+
+
+@admin.register(Questionnaire)
+class QuestionnaireAdmin(admin.ModelAdmin):
+    """
+    Admin interface for Questionnaire model.
+    """
+    list_display = ('id', 'title', 'created_by', 'is_active', 'created_at', 'updated_at')
+    list_filter = ('is_active', 'created_at', 'updated_at', 'created_by')
+    search_fields = ('title', 'created_by__username')
+    readonly_fields = ('created_at', 'updated_at')
+    raw_id_fields = ('created_by',)
+    
+    fieldsets = (
+        (None, {
+            'fields': ('title', 'created_by', 'is_active')
+        }),
+        ('Google Form Integration', {
+            'fields': ('google_form_link', 'embedding_html'),
+            'description': 'Add either a direct link to the Google Form or the HTML embed code (iframe)'
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
+    def get_queryset(self, request):
+        """Optimize queryset with select_related."""
+        return super().get_queryset(request).select_related('created_by')

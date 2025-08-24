@@ -68,3 +68,60 @@ class Message(models.Model):
         return f"From {self.from_user} in Conversation {self.conversation.id}: {self.text[:20] if self.text else '[Attachment]'}"
 
 
+class Questionnaire(models.Model):
+    """
+    A questionnaire with Google Form integration.
+    """
+    title = models.CharField(max_length=255, help_text="Title of the questionnaire")
+    google_form_link = models.URLField(
+        max_length=500,
+        help_text="Direct link to the Google Form"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="created_questionnaires"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True, help_text="Whether this questionnaire is active")
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+    def generate_iframe_from_link(self, width=640, height=524):
+        """
+        Generate iframe embed code from Google Form link
+        Converts regular Google Form links to embedded format
+        """
+        if not self.google_form_link:
+            return None
+        
+        # Convert regular Google Form link to embed format
+        if "docs.google.com/forms" in self.google_form_link:
+            # Extract the form ID from the link
+            if "/viewform" in self.google_form_link:
+                # Handle links like: https://docs.google.com/forms/d/e/FORM_ID/viewform?usp=header
+                form_part = self.google_form_link.split("/viewform")[0]
+                embed_url = f"{form_part}/viewform?embedded=true"
+            else:
+                # If it's already in some other format, try to add embedded parameter
+                separator = "&" if "?" in self.google_form_link else "?"
+                embed_url = f"{self.google_form_link}{separator}embedded=true"
+            
+            iframe_code = f'<iframe src="{embed_url}" width="{width}" height="{height}" frameborder="0" marginheight="0" marginwidth="0">載入中…</iframe>'
+            return iframe_code
+        
+        return None
+
+    def get_iframe_code(self, width=640, height=524):
+        """
+        Get iframe code with custom dimensions
+        This method is called dynamically when needed
+        """
+        return self.generate_iframe_from_link(width=width, height=height)
+
+
