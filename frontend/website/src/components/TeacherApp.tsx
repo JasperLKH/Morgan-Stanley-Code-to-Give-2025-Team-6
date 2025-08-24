@@ -198,62 +198,62 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
    */
 
   // // sample data
-  // const assignments: Assignment[] = [
-  //   {
-  //     id: '1',
-  //     title: 'Read "The Little Red Hen"',
-  //     type: 'reading',
-  //     dueDate: 'Dec 25, 2024',
-  //     totalSubmissions: 15,
-  //     pendingReview: 3,
-  //     completedReviews: 12,
-  //     averageScore: 82,
-  //     description: 'Students read the story and discuss with parents'
-  //   },
-  //   {
-  //     id: '2',
-  //     title: 'Practice Writing Numbers 1-5',
-  //     type: 'writing',
-  //     dueDate: 'Dec 26, 2024',
-  //     totalSubmissions: 12,
-  //     pendingReview: 5,
-  //     completedReviews: 7,
-  //     averageScore: 78,
-  //     description: 'Number tracing and writing practice'
-  //   },
-  //   {
-  //     id: '3',
-  //     title: 'Counting with Toys',
-  //     type: 'math',
-  //     dueDate: 'Dec 27, 2024',
-  //     totalSubmissions: 18,
-  //     pendingReview: 1,
-  //     completedReviews: 17,
-  //     averageScore: 85,
-  //     description: 'Count household items and record results'
-  //   },
-  //   {
-  //     id: '4',
-  //     title: 'Draw a Family Picture',
-  //     type: 'art',
-  //     dueDate: 'Dec 28, 2024',
-  //     totalSubmissions: 8,
-  //     pendingReview: 8,
-  //     completedReviews: 0,
-  //     averageScore: 0,
-  //     description: 'Create family artwork and discuss relationships'
-  //   }
-  // ];
+  const assignments: Assignment[] = [
+    {
+      id: '1',
+      title: 'Read "The Little Red Hen"',
+      type: 'reading',
+      dueDate: 'Dec 25, 2024',
+      totalSubmissions: 15,
+      pendingReview: 3,
+      completedReviews: 12,
+      averageScore: 82,
+      description: 'Students read the story and discuss with parents'
+    },
+    {
+      id: '2',
+      title: 'Practice Writing Numbers 1-5',
+      type: 'writing',
+      dueDate: 'Dec 26, 2024',
+      totalSubmissions: 12,
+      pendingReview: 5,
+      completedReviews: 7,
+      averageScore: 78,
+      description: 'Number tracing and writing practice'
+    },
+    {
+      id: '3',
+      title: 'Counting with Toys',
+      type: 'math',
+      dueDate: 'Dec 27, 2024',
+      totalSubmissions: 18,
+      pendingReview: 1,
+      completedReviews: 17,
+      averageScore: 85,
+      description: 'Count household items and record results'
+    },
+    {
+      id: '4',
+      title: 'Draw a Family Picture',
+      type: 'art',
+      dueDate: 'Dec 28, 2024',
+      totalSubmissions: 8,
+      pendingReview: 8,
+      completedReviews: 0,
+      averageScore: 0,
+      description: 'Create family artwork and discuss relationships'
+    }
+  ];
 
-  // assignments fetched from backend, created by julian
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  // // assignments fetched from backend, created by julian
+  // const [assignments, setAssignments] = useState<Assignment[]>([]);
 
-  useEffect(() => {
-    fetch('http://localhost:8000/assignments/')
-      .then((response) => response.json())
-      .then((data) => setAssignments(data))
-      .catch((error) => console.error('Error fetching assignments:', error));
-  }, []);
+  // useEffect(() => {
+  //   fetch('http://localhost:8000/assignments/')
+  //     .then((response) => response.json())
+  //     .then((data) => setAssignments(data))
+  //     .catch((error) => console.error('Error fetching assignments:', error));
+  // }, []);
 
   // sample data
   const sendMessage = () => {
