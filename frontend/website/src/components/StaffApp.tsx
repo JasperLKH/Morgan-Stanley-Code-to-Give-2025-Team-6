@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { StaffProvider } from './contexts/StaffContext';
 import { StaffDashboard } from './staff/StaffDashboard';
 import { PerformanceAnalytics } from './staff/PerformanceAnalytics';
-import { ParentAccountManagement } from './staff/ParentAccountManagement';
+import ParentAccountManagement from './staff/ParentAccountManagement';
 import { StaffAssignmentManagement } from './staff/StaffAssignmentManagement';
 import { StaffChat } from './staff/StaffChat';
 import { CommunityManagement } from './staff/CommunityManagement';
@@ -53,7 +53,7 @@ function StaffAppContent({ user, onLogout }: StaffAppProps) {
       case 'assignments':
         return <StaffAssignmentManagement user={user} />;
       case 'accounts':
-        return <ParentAccountManagement />;
+        return <ParentAccountManagement user={user} />;
       case 'analytics':
         return <PerformanceAnalytics user={user} />;
       case 'rewards':

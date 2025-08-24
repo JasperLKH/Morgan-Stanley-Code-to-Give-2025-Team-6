@@ -1,361 +1,271 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Separator } from '../ui/separator';
-import { Alert, AlertDescription } from '../ui/alert';
-import { ArrowLeft, UserPlus, Users, School, CheckCircle2 } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from "react";
+import { Card, CardContent } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Badge } from "../ui/badge";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+import { Search, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 
-interface School {
-  id: string;
-  name: string;
+interface User {
+  id: number;
+  username: string;
+  role: string;
+  parent_name?: string | null;
+  children_name?: string | null;
+  teacher_name?: string | null;
+  staff_name?: string | null;
+  is_active: boolean;
+  school: string;
 }
 
-interface Family {
-  id: string;
-  parentName: string;
-  parentEmail: string;
-  parentPhone: string;
-  studentName: string;
-  studentAge: string;
-  schoolId: string;
-  schoolName: string;
-  createdAt: string;
-}
+export function FamilyManagement() {
+  const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+  const [usersBySchool, setUsersBySchool] = useState<Record<string, User[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [roleFilter, setRoleFilter] = useState<Record<string, string>>({});
+  const [searchTerm, setSearchTerm] = useState("");
 
-interface FamilyManagementProps {
-  onBack?: () => void;
-}
+  // Fetch schools first
+  useEffect(() => {
+    fetch("http://localhost:8000/account/schools/")
+      .then((res) => res.json())
+      .then((data) => setSchools(data.schools || []))
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
 
-export function FamilyManagement({ onBack }: FamilyManagementProps) {
-  const [schools] = useState<School[]>([
-    { id: '1', name: 'Sunshine Kindergarten' },
-    { id: '2', name: 'Happy Learning Center' },
-    { id: '3', name: 'Little Stars Academy' }
-  ]);
-
-  const [families, setFamilies] = useState<Family[]>([
-    {
-      id: '1',
-      parentName: 'Sarah Chen',
-      parentEmail: 'sarah.chen@email.com',
-      parentPhone: '+852 9123 4567',
-      studentName: 'Emma Chen',
-      studentAge: '5',
-      schoolId: '1',
-      schoolName: 'Sunshine Kindergarten',
-      createdAt: '2024-01-15'
-    },
-    {
-      id: '2',
-      parentName: 'Michael Wong',
-      parentEmail: 'michael.wong@email.com',
-      parentPhone: '+852 9876 5432',
-      studentName: 'Lucas Wong',
-      studentAge: '4',
-      schoolId: '2',
-      schoolName: 'Happy Learning Center',
-      createdAt: '2024-02-20'
+  const fetchUsers = async (schoolName: string, role: string) => {
+    try {
+      const res = await fetch(
+        `http://localhost:8000/account/schools/${encodeURIComponent(
+          schoolName
+        )}/users/?role=${role}`
+      );
+      const data = await res.json();
+      setUsersBySchool((prev) => ({ ...prev, [schoolName]: data.users }));
+    } catch (err) {
+      console.error(err);
     }
-  ]);
-
-  const [formData, setFormData] = useState({
-    parentName: '',
-    parentEmail: '',
-    parentPhone: '',
-    studentName: '',
-    studentAge: '',
-    schoolId: ''
-  });
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const validateForm = () => {
-    const requiredFields = ['parentName', 'parentEmail', 'studentName', 'studentAge', 'schoolId'];
-    
-    for (const field of requiredFields) {
-      if (!formData[field as keyof typeof formData].trim()) {
-        return false;
-      }
-    }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.parentEmail)) {
-      toast.error('Please enter a valid email address');
-      return false;
-    }
-
-    // Age validation
-    const age = parseInt(formData.studentAge);
-    if (isNaN(age) || age < 3 || age > 6) {
-      toast.error('Student age must be between 3 and 6 years');
-      return false;
-    }
-
-    return true;
+  const handleActivate = async (userId: number, school: string) => {
+    await fetch("http://localhost:8000/account/users/activate/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    setUsersBySchool((prev) => ({
+      ...prev,
+      [school]: prev[school].map((u) =>
+        u.id === userId ? { ...u, is_active: true } : u
+      ),
+    }));
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      const selectedSchool = schools.find(s => s.id === formData.schoolId);
-      
-      const newFamily: Family = {
-        id: Date.now().toString(),
-        parentName: formData.parentName.trim(),
-        parentEmail: formData.parentEmail.trim(),
-        parentPhone: formData.parentPhone.trim(),
-        studentName: formData.studentName.trim(),
-        studentAge: formData.studentAge.trim(),
-        schoolId: formData.schoolId,
-        schoolName: selectedSchool?.name || '',
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-
-      setFamilies(prev => [...prev, newFamily]);
-      
-      // Reset form
-      setFormData({
-        parentName: '',
-        parentEmail: '',
-        parentPhone: '',
-        studentName: '',
-        studentAge: '',
-        schoolId: ''
-      });
-      
-      setIsSubmitting(false);
-      setShowForm(false);
-      toast.success(`Family "${newFamily.parentName}" added successfully`);
-    }, 1000);
+  const handleDeactivate = async (userId: number, school: string) => {
+    await fetch("http://localhost:8000/account/users/deactivate/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    setUsersBySchool((prev) => ({
+      ...prev,
+      [school]: prev[school].map((u) =>
+        u.id === userId ? { ...u, is_active: false } : u
+      ),
+    }));
   };
 
-  if (showForm) {
-    return (
-      <div className="p-6 max-w-2xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setShowForm(false)}
-            className="p-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <UserPlus className="h-6 w-6 text-primary" />
-          <h1>Add New Family</h1>
-        </div>
+  const handleUpdateName = async (
+    userId: number,
+    role: string,
+    newName: string,
+    school: string
+  ) => {
+    const body: any = { user_id: userId };
+    if (role === "parent") body.parent_name = newName;
+    if (role === "teacher") body.teacher_name = newName;
+    if (role === "staff") body.staff_name = newName;
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Family Information</CardTitle>
-            <CardDescription>
-              Enter parent and student details to create a new family account
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Parent Information */}
-            <div>
-              <h3 className="font-medium mb-4 flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Parent Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="parentName">Parent Name *</Label>
-                  <Input
-                    id="parentName"
-                    value={formData.parentName}
-                    onChange={(e) => handleInputChange('parentName', e.target.value)}
-                    placeholder="Enter parent's full name"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="parentEmail">Email Address *</Label>
-                  <Input
-                    id="parentEmail"
-                    type="email"
-                    value={formData.parentEmail}
-                    onChange={(e) => handleInputChange('parentEmail', e.target.value)}
-                    placeholder="parent@email.com"
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-              <div className="mt-4">
-                <Label htmlFor="parentPhone">Phone Number</Label>
-                <Input
-                  id="parentPhone"
-                  value={formData.parentPhone}
-                  onChange={(e) => handleInputChange('parentPhone', e.target.value)}
-                  placeholder="+852 9123 4567"
-                  className="mt-1"
-                />
-              </div>
-            </div>
+    await fetch("http://localhost:8000/account/users/update-name/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
 
-            <Separator />
+    setUsersBySchool((prev) => ({
+      ...prev,
+      [school]: prev[school].map((u) =>
+        u.id === userId
+          ? {
+              ...u,
+              parent_name: role === "parent" ? newName : u.parent_name,
+              teacher_name: role === "teacher" ? newName : u.teacher_name,
+              staff_name: role === "staff" ? newName : u.staff_name,
+            }
+          : u
+      ),
+    }));
+  };
 
-            {/* Student Information */}
-            <div>
-              <h3 className="font-medium mb-4 flex items-center gap-2">
-                <School className="h-4 w-4" />
-                Student Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="studentName">Student Name *</Label>
-                  <Input
-                    id="studentName"
-                    value={formData.studentName}
-                    onChange={(e) => handleInputChange('studentName', e.target.value)}
-                    placeholder="Enter student's full name"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="studentAge">Age *</Label>
-                  <Input
-                    id="studentAge"
-                    type="number"
-                    min="3"
-                    max="6"
-                    value={formData.studentAge}
-                    onChange={(e) => handleInputChange('studentAge', e.target.value)}
-                    placeholder="5"
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-              <div className="mt-4">
-                <Label htmlFor="school">School *</Label>
-                <Select value={formData.schoolId} onValueChange={(value) => handleInputChange('schoolId', value)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select a school" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {schools.map((school) => (
-                      <SelectItem key={school.id} value={school.id}>
-                        {school.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Alert>
-              <CheckCircle2 className="h-4 w-4" />
-              <AlertDescription>
-                After adding the family, parent login credentials will be automatically generated and can be shared with the parent.
-              </AlertDescription>
-            </Alert>
-
-            <div className="flex gap-3 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowForm(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="flex-1"
-              >
-                {isSubmitting ? 'Adding Family...' : 'Add Family'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  if (loading) return <p>Loading...</p>;
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          {onBack && (
-            <Button variant="ghost" size="sm" onClick={onBack} className="p-2">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          )}
-          <Users className="h-6 w-6 text-primary" />
-          <h1>Family Management</h1>
-        </div>
-        <Button onClick={() => setShowForm(true)}>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Add Family
-        </Button>
-      </div>
+    <div className="space-y-8">
+      <h2 className="text-xl font-bold">Users</h2>
 
+      {/* Search */}
       <Card>
-        <CardHeader>
-          <CardTitle>Registered Families</CardTitle>
-          <CardDescription>
-            View and manage all families registered in the REACH platform
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {families.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No families registered yet</p>
-              <p className="text-sm">Click "Add Family" to get started</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {families.map((family) => (
-                <div key={family.id} className="border rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <h3 className="font-medium text-primary">{family.parentName}</h3>
-                      <p className="text-sm text-muted-foreground">{family.parentEmail}</p>
-                      {family.parentPhone && (
-                        <p className="text-sm text-muted-foreground">{family.parentPhone}</p>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-medium">{family.studentName}</h3>
-                      <p className="text-sm text-muted-foreground">Age: {family.studentAge} years</p>
-                      <p className="text-sm text-muted-foreground">{family.schoolName}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Added: {family.createdAt}</p>
-                      <div className="flex justify-end gap-2 mt-2">
-                        <Button variant="outline" size="sm">
-                          Edit
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Search by name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </CardContent>
       </Card>
+
+      {schools.map((school) => {
+        const schoolName = school.name;
+        const users = usersBySchool[schoolName] || [];
+        const role = roleFilter[schoolName] || "parent";
+
+        // Split active/inactive
+        const activeUsers = users.filter((u) => u.is_active);
+        const inactiveUsers = users.filter((u) => !u.is_active);
+
+        return (
+          <div key={school.id} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">{schoolName}</h3>
+              <select
+                value={role}
+                onChange={(e) => {
+                  const newRole = e.target.value;
+                  setRoleFilter((prev) => ({
+                    ...prev,
+                    [schoolName]: newRole,
+                  }));
+                  fetchUsers(schoolName, newRole);
+                }}
+                className="border rounded p-1"
+              >
+                <option value="parent">Parents</option>
+                <option value="teacher">Teachers</option>
+              </select>
+            </div>
+
+            {[...activeUsers, ...inactiveUsers]
+              .filter((account) => {
+                const namesToSearch = [
+                  account.parent_name,
+                  account.teacher_name,
+                  account.staff_name,
+                  account.children_name
+                ].filter(Boolean).join(" ");
+                return namesToSearch
+                  .toLowerCase()
+                  .includes(searchTerm.toLowerCase());
+              })
+              .map((account) => {
+                const displayName =
+                  account.parent_name ||
+                  account.teacher_name ||
+                  account.staff_name ||
+                  "Unnamed";
+
+                return (
+                  <Card key={account.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <Avatar className="w-12 h-12">
+                            <AvatarFallback className="bg-blue-100 text-blue-600">
+                              {displayName
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")}
+                            </AvatarFallback>
+                          </Avatar>
+
+                          <div>
+                            <Input
+                              defaultValue={displayName}
+                              onBlur={(e) =>
+                                handleUpdateName(
+                                  account.id,
+                                  account.role,
+                                  e.target.value,
+                                  schoolName
+                                )
+                              }
+                            />
+                            {account.role === "parent" && (
+                              <p className="text-sm text-gray-600">
+                                Child: {account.children_name || "N/A"}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-500">
+                              Role: {account.role}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-4">
+                          <Badge
+                            variant={
+                              account.is_active ? "default" : "secondary"
+                            }
+                            className={account.is_active ? "bg-green-500" : ""}
+                          >
+                            {account.is_active ? "active" : "inactive"}
+                          </Badge>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm" variant="ghost">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              {account.is_active ? (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleDeactivate(account.id, schoolName)
+                                  }
+                                >
+                                  Deactivate
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleActivate(account.id, schoolName)
+                                  }
+                                >
+                                  Activate
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+          </div>
+        );
+      })}
     </div>
   );
 }
