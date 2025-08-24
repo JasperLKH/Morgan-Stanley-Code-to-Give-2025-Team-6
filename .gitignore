@@ -12,5 +12,4 @@ __pycache__/
 .eggs/
 
 db.sqlite3
-postmanfrontend/website/node_modules/
-frontend/website/build/
+postman

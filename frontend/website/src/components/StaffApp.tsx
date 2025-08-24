@@ -10,7 +10,6 @@ import { StaffAssignmentManagement } from './staff/StaffAssignmentManagement';
 import { StaffChat } from './staff/StaffChat';
 import { CommunityManagement } from './staff/CommunityManagement';
 import { RewardsManagement } from './staff/RewardsManagement';
-import { CreateAssignmentPage } from './staff/CreateAssignmentPage';
 
 interface User {
   id: string;
@@ -25,7 +24,6 @@ interface StaffAppProps {
 
 export function StaffApp({ user, onLogout }: StaffAppProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [showCreateAssignment, setShowCreateAssignment] = useState(false);
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -38,15 +36,11 @@ export function StaffApp({ user, onLogout }: StaffAppProps) {
   ];
 
   const renderContent = () => {
-    if (showCreateAssignment) {
-      return <CreateAssignmentPage user={user} onBack={() => setShowCreateAssignment(false)} />;
-    }
-    
     switch (activeTab) {
       case 'dashboard':
         return <StaffDashboard user={user} />;
       case 'assignments':
-        return <StaffAssignmentManagement user={user} onCreateAssignment={() => setShowCreateAssignment(true)} />;
+        return <StaffAssignmentManagement user={user} />;
       case 'accounts':
         return <ParentAccountManagement user={user} />;
       case 'analytics':
@@ -61,11 +55,6 @@ export function StaffApp({ user, onLogout }: StaffAppProps) {
         return <StaffDashboard user={user} />;
     }
   };
-
-  // If showing create assignment page, render it without navigation
-  if (showCreateAssignment) {
-    return renderContent();
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">

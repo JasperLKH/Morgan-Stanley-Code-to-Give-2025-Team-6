@@ -29,4 +29,9 @@ urlpatterns = [
     path("questionnaires/<int:pk>/", views.questionnaire_detail, name="questionnaire_detail"),
     path("questionnaires/<int:pk>/deactivate/", views.questionnaire_deactivate, name="questionnaire_deactivate"),
     path("questionnaires/<int:pk>/activate/", views.questionnaire_activate, name="questionnaire_activate"),
+    
+    # Broadcast messaging
+    path("messages/send-to-all/", views.send_to_all, name="send_to_all"),
+    path("messages/send-to-all-by-school/<str:school_name>/", views.send_to_all_by_school, name="send_to_all_by_school"),
+    path("messages/send-to-role/<str:school_name>/<str:role>/", views.send_to_role_by_school, name="send_to_role_by_school"),
 ]

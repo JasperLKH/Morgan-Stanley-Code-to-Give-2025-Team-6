@@ -21,6 +21,48 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(''); // Add error state
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:8000/account/login/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Adjust this mapping to match your backend's user object
+        const user = {
+          id: data.user.id,
+          name: data.user.role === 'parent' ? data.user.parent_name : 
+           data.user.role === 'teacher' ? data.user.teacher_name :
+           data.user.role === 'staff' ? data.user.staff_name : 
+           data.user.username,
+          role: data.user.role,
+          childName: data.user.children_name,
+        };
+        onLogin(user);
+      } else {
+        setError('Invalid username or password');
+      }
+    } catch (error) {
+      setError('Network error. Please try again.');
+    }
+    setLoading(false);
+  };
+
+/*export function LoginPage({ onLogin }: LoginPageProps) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +88,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       onLogin(user);
       setLoading(false);
     }, 1000);
-  };
+  };*/
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
@@ -188,7 +230,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 size="sm"
                 onClick={() => {
                   setUsername('parent1');
-                  setPassword('demo');
+                  setPassword('demo1234');
                 }}
                 className="text-blue-600 border-blue-200 hover:bg-blue-50"
               >
@@ -208,7 +250,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 size="sm"
                 onClick={() => {
                   setUsername('teacher1');
-                  setPassword('demo');
+                  setPassword('demo1234');
                 }}
                 className="text-green-600 border-green-200 hover:bg-green-50"
               >
@@ -228,7 +270,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 size="sm"
                 onClick={() => {
                   setUsername('staff1');
-                  setPassword('demo');
+                  setPassword('demo1234');
                 }}
                 className="text-purple-600 border-purple-200 hover:bg-purple-50"
               >

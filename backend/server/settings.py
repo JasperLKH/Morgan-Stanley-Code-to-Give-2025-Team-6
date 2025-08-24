@@ -139,7 +139,10 @@ AUTH_USER_MODEL = 'account.User'
 CORS_ALLOW_ALL_ORIGINS = True  # Only for development! Change this in production
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_HEADERS = [
+# Allow all headers for development
+CORS_ALLOW_ALL_ORIGINS = True  # Set to True only for development if needed
+CORS_ALLOW_HEADERS = [
+    '*',  # allow all headers
     'accept',
     'accept-encoding',
     'authorization',
@@ -149,5 +152,9 @@ CORS_ALLOWED_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    'user-id',  # Custom header for user identification
+    'User-ID',  # Custom header for user identification
+    'Content-Type'
 ]
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
