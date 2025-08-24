@@ -46,7 +46,6 @@ INSTALLED_APPS = [
     'assignmentapp',
     'chatapp',
     'forumapp',
-    'parentapp'
 ]
 
 MIDDLEWARE = [
