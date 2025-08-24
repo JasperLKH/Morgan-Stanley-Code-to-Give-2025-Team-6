@@ -7,17 +7,14 @@ import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { MessageCircle, Send, GraduationCap, Heart, Search, Paperclip, X } from 'lucide-react';
+import { useStaffContext } from '../contexts/StaffContext';
 
 const API_BASE = 'http://localhost:8000';
-const CURRENT_STAFF = { id: 2, username: 'staff1', role: 'staff' as const };
-// TODO: replace with actual logged-in user
 
-const withUserHeader = (init?: RequestInit): RequestInit => ({
-  credentials: 'omit',
-  ...(init || {}),
+// Helper function to add User-ID header for API calls
+const withUserHeader = (currentUserId?: string) => ({
   headers: {
-    ...(init?.headers || {}),
-    'User-ID': String(CURRENT_STAFF.id),
+    'User-ID': currentUserId || '',
   },
 });
 
@@ -61,6 +58,12 @@ type ChatBubble = {
 };
 
 export function StaffChat() {
+  const { state } = useStaffContext();
+  const currentUser = state.user;
+  
+  // Log user ID for debugging
+  console.log('StaffChat - Current User ID:', currentUser?.id);
+  
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -87,7 +90,7 @@ export function StaffChat() {
       setLoading(true);
       setErrorMsg('');
       try {
-        const res = await fetch(`${API_BASE}/chat/conversations/`, withUserHeader());
+        const res = await fetch(`${API_BASE}/chat/conversations/`, withUserHeader(currentUser?.id));
         if (!res.ok) throw new Error(`Failed to load conversations (${res.status})`);
         const data: { conversations: ApiConversation[] } = await res.json();
         if (!alive) return;
@@ -100,35 +103,35 @@ export function StaffChat() {
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [currentUser]);
 
   /* -------------------- load ALL users (directory) -------------------- */
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/account/users/`, withUserHeader());
+        const res = await fetch(`${API_BASE}/account/users/`, withUserHeader(currentUser?.id));
         if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
         const data: { users: ApiUser[] } = await res.json();
         if (!alive) return;
         // exclude self
-        setAllUsers((data.users || []).filter(u => u.id !== CURRENT_STAFF.id));
+        setAllUsers((data.users || []).filter(u => u.id !== parseInt(currentUser?.id || '0')));
       } catch (e) {
         // non-fatal for chat
         console.warn(e);
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [currentUser]);
 
   /* -------------------- helper: fetch messages for a conversation -------------------- */
   const fetchMessages = async (convId: number) => {
-    const res = await fetch(`${API_BASE}/chat/conversations/${convId}/messages/list`, withUserHeader());
+    const res = await fetch(`${API_BASE}/chat/conversations/${convId}/messages/list`, withUserHeader(currentUser?.id));
     if (!res.ok) throw new Error(`Failed to load messages (${res.status})`);
     const data: { messages: ApiMessage[] } = await res.json();
     const mapped: ChatBubble[] = (data.messages || []).map((m) => ({
       id: m.id,
-      type: m.from_user.id === CURRENT_STAFF.id ? 'sent' : 'received',
+      type: m.from_user.id === parseInt(currentUser?.id || '0') ? 'sent' : 'received',
       text: m.text || undefined,
       attachmentUrl: m.attachment ? `${API_BASE}${m.attachment}` : undefined,
       senderName: m.from_user.parent_name || m.from_user.username,
@@ -168,7 +171,7 @@ export function StaffChat() {
   /* -------------------- contacts from conversations (left list) -------------------- */
   const contacts = useMemo(() => {
     return conversations.map((c) => {
-      const other = c.participants.find((p) => p.id !== CURRENT_STAFF.id) || c.participants[0];
+      const other = c.participants.find((p) => p.id !== parseInt(currentUser?.id || '0')) || c.participants[0];
       return {
         id: c.id,
         name: c.conversation_type === 'private'
@@ -181,7 +184,7 @@ export function StaffChat() {
         otherUserId: other?.id,
       };
     });
-  }, [conversations]);
+  }, [conversations, currentUser]);
 
   const parentContacts = contacts.filter((c) => c.role === 'parent');
   const teacherContacts = contacts.filter((c) => c.role === 'teacher');
@@ -208,7 +211,7 @@ export function StaffChat() {
       (c) =>
         c.conversation_type === 'private' &&
         c.participants.some((p) => p.id === targetUserId) &&
-        c.participants.some((p) => p.id === CURRENT_STAFF.id)
+        c.participants.some((p) => p.id === parseInt(currentUser?.id || '0'))
     );
     if (existing) {
       setSelectedConv(existing);
@@ -221,7 +224,7 @@ export function StaffChat() {
       const res = await fetch(`${API_BASE}/chat/conversations/create/`, {
         method: 'POST',
         headers: {
-          'User-ID': String(CURRENT_STAFF.id),
+          'User-ID': String(currentUser?.id || ''),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ participant_id: targetUserId }),
@@ -249,12 +252,12 @@ export function StaffChat() {
 
   const selectedHeader = useMemo(() => {
     if (!selectedConv) return null;
-    const other = selectedConv.participants.find((p) => p.id !== CURRENT_STAFF.id) || selectedConv.participants[0];
+    const other = selectedConv.participants.find((p) => p.id !== parseInt(currentUser?.id || '0')) || selectedConv.participants[0];
     const displayName = selectedConv.conversation_type === 'private'
       ? (other?.parent_name || other?.username)
       : (selectedConv.name || `Group #${selectedConv.id}`);
     return { displayName, role: (other?.role || 'parent') as Role, childName: other?.children_name, lastActive: selectedConv.updated_at };
-  }, [selectedConv]);
+  }, [selectedConv, currentUser]);
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -274,7 +277,7 @@ export function StaffChat() {
         type: 'sent',
         text: hasText ? composerText.trim() : undefined,
         attachmentUrl: composerFile ? URL.createObjectURL(composerFile) : undefined,
-        senderName: CURRENT_STAFF.username,
+        senderName: currentUser?.username || 'Unknown',
         timestampISO: new Date().toISOString(),
       },
     ]);
@@ -289,13 +292,13 @@ export function StaffChat() {
         form.append('attachment', composerFile);
         res = await fetch(url, {
           method: 'POST',
-          headers: { 'User-ID': String(CURRENT_STAFF.id) },
+          headers: { 'User-ID': String(currentUser?.id || '') },
           body: form,
         });
       } else {
         res = await fetch(url, {
           method: 'POST',
-          headers: { 'User-ID': String(CURRENT_STAFF.id), 'Content-Type': 'application/json' },
+          headers: { 'User-ID': String(currentUser?.id || ''), 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: composerText.trim() }),
         });
       }
