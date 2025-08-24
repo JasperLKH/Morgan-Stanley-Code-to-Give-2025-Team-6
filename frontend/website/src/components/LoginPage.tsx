@@ -85,6 +85,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         user = { id: '1', name: 'Sarah Chen', role: 'parent', childName: 'Emma Chen' };
       }
       
+      console.log('LoginPage - User logged in:', user);
       onLogin(user);
       setLoading(false);
     }, 1000);

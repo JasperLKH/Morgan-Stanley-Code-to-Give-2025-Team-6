@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Send, Paperclip, Camera, Smile, Phone, Video, Loader2 } from 'lucide-react';
 import { apiService } from '../../services/api';
-import { useUser } from '../../contexts/UserContext';
+import { useParentContext } from '../contexts/ParentContext';
 
 interface User {
   id: string;
@@ -35,7 +35,12 @@ interface ChatPageProps {
 }
 
 export function ChatPage({ user }: ChatPageProps) {
-  const { user: currentUser } = useUser();
+  const { state } = useParentContext();
+  const currentUser = state.user;
+  
+  // Log user ID for debugging
+  console.log('ChatPage - Current User ID:', currentUser?.id);
+  
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);

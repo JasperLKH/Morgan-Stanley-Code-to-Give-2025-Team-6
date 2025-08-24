@@ -20,7 +20,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { apiService } from '../../services/api';
-import { useUser } from '../../contexts/UserContext';
+import { useParentContext } from '../contexts/ParentContext';
 
 interface Assignment {
   id: number;
@@ -59,7 +59,13 @@ interface Reward {
 }
 
 export function ParentHome({ user }: ParentHomeProps) {
-  const { user: currentUser } = useUser();
+  const { state } = useParentContext();
+  const currentUser = state.user;
+  const dashboard = state.dashboard;
+  
+  // Log user ID for debugging
+  console.log('ParentHome - Current User ID:', currentUser?.id);
+  
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
@@ -138,8 +144,8 @@ export function ParentHome({ user }: ParentHomeProps) {
     }
   ];
 
-  const currentPoints = currentUser?.points || 0;
-  const currentStreak = currentUser?.streaks || 0;
+  const currentPoints = dashboard?.totalPoints || 0;
+  const currentStreak = dashboard?.currentStreak || 0;
   const completedToday = completedTasks.length;
   const totalToday = todaysTasks.length;
   const todaysPoints = todaysTasks
@@ -185,7 +191,7 @@ export function ParentHome({ user }: ParentHomeProps) {
           Good morning, {user.name}! 👋
         </h1>
         <p className="text-gray-600">
-          Let's help {currentUser?.children_name || 'your child'} learn and grow today
+          Let's help {currentUser?.childName || 'your child'} learn and grow today
         </p>
       </div>
 

@@ -79,6 +79,7 @@ interface KindergartenRanking {
 // Actions
 type ParentAction =
   | { type: 'SET_LANGUAGE'; payload: Language }
+  | { type: 'SET_USER'; payload: { id: string; name: string; childName: string; kindergarten: string } }
   | { type: 'UPDATE_DASHBOARD'; payload: Partial<ParentState['dashboard']> }
   | { type: 'COMPLETE_TASK'; payload: string }
   | { type: 'UPDATE_ASSIGNMENTS'; payload: Assignment[] }
@@ -426,6 +427,9 @@ function parentReducer(state: ParentState, action: ParentAction): ParentState {
   switch (action.type) {
     case 'SET_LANGUAGE':
       return { ...state, language: action.payload };
+    case 'SET_USER':
+      console.log('ParentContext reducer - Setting user to:', action.payload);
+      return { ...state, user: action.payload };
     case 'UPDATE_DASHBOARD':
       return { ...state, dashboard: { ...state.dashboard, ...action.payload } };
     case 'COMPLETE_TASK':
@@ -513,10 +517,27 @@ const initialState: ParentState = {
 // Provider component
 interface ParentProviderProps {
   children: ReactNode;
+  user?: { id: string; name: string; childName?: string; kindergarten?: string };
 }
 
-export function ParentProvider({ children }: ParentProviderProps) {
+export function ParentProvider({ children, user }: ParentProviderProps) {
   const [state, dispatch] = useReducer(parentReducer, initialState);
+
+  // Update user when prop changes
+  React.useEffect(() => {
+    if (user) {
+      console.log('ParentContext - Setting user:', user);
+      dispatch({
+        type: 'SET_USER',
+        payload: {
+          id: user.id,
+          name: user.name,
+          childName: user.childName || 'Your child',
+          kindergarten: user.kindergarten || 'Kindergarten'
+        }
+      });
+    }
+  }, [user]);
 
   const t = (key: string, fallback?: string): string => {
     const translation = translations[state.language][key];

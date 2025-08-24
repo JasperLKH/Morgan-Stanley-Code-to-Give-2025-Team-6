@@ -16,7 +16,7 @@ import {
   User
 } from 'lucide-react';
 import { apiService } from '../../services/api';
-import { useUser } from '../../contexts/UserContext';
+import { useParentContext } from "../contexts/ParentContext";
 
 interface ForumPost {
   id: number;
@@ -46,7 +46,12 @@ interface Comment {
 }
 
 export function CommunityForumPage() {
-  const { user: currentUser } = useUser();
+  const { state } = useParentContext();
+  const currentUser = state.user;
+  
+  // Log user ID for debugging
+  console.log('CommunityForumPage - Current User ID:', currentUser?.id);
+  
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [comments, setComments] = useState<Record<number, Comment[]>>({});
   const [loading, setLoading] = useState(true);
@@ -66,11 +71,11 @@ export function CommunityForumPage() {
     setLoading(true);
     try {
       const response = await apiService.getForumPosts();
-      if (response.success && response.data) {
+      if (response.success && response.data && Array.isArray(response.data)) {
         setPosts(response.data as ForumPost[]);
       } else {
-        // Use mock data if API fails
-        console.log('API failed, using mock data');
+        // Use mock data if API fails or data is not an array
+        console.log('API failed or returned non-array data, using mock data');
         setPosts(mockPosts);
       }
     } catch (error) {
@@ -189,12 +194,12 @@ export function CommunityForumPage() {
     }
   };
 
-  const filteredPosts = posts.filter(post => {
+  const filteredPosts = Array.isArray(posts) ? posts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          post.content.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || post.category === selectedCategory;
     return matchesSearch && matchesCategory;
-  });
+  }) : [];
 
   const categories = ['all', 'general', 'homework-help', 'achievements', 'tips', 'questions'];
 

@@ -83,7 +83,12 @@ export function EnhancedParentApp({ user, onLogout }: EnhancedParentAppProps) {
   };
 
   return (
-    <ParentProvider>
+    <ParentProvider user={{
+      id: user.id,
+      name: user.name,
+      childName: user.childName,
+      kindergarten: 'Sunshine Kindergarten' // Default value, could be passed from user if available
+    }}>
       <div className="min-h-screen bg-gray-50">
         {/* Mobile Navigation Overlay */}
         {showMobileMenu && (

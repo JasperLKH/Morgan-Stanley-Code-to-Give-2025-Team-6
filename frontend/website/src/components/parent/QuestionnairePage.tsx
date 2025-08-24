@@ -18,7 +18,7 @@ import {
   Edit
 } from 'lucide-react';
 import { apiService } from '../../services/api';
-import { useUser } from '../../contexts/UserContext';
+import { useParentContext } from '../contexts/ParentContext';
 
 interface Questionnaire {
   id: number;
@@ -38,7 +38,8 @@ interface QuestionnaireResponse {
 }
 
 export function QuestionnairePage() {
-  const { user: currentUser } = useUser();
+  const { state } = useParentContext();
+  const currentUser = state.user;
   const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState<number | null>(null);
@@ -157,7 +158,7 @@ export function QuestionnairePage() {
             Participate in surveys and provide feedback to REACH
           </p>
         </div>
-        {currentUser?.role === 'staff' && (
+        {false && (
           <Button
             onClick={() => setShowCreateForm(true)}
             className="bg-primary hover:bg-primary/90"
@@ -357,7 +358,7 @@ export function QuestionnairePage() {
                           Respond
                         </Button>
                         
-                        {currentUser?.role === 'staff' && (
+                        {false && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -380,7 +381,7 @@ export function QuestionnairePage() {
       )}
 
       {/* Quick Stats */}
-      {currentUser?.role === 'staff' && !selectedQuestionnaire && !showCreateForm && (
+      {false && !selectedQuestionnaire && !showCreateForm && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Survey Statistics</CardTitle>

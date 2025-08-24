@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { TrendingUp, Star, Target, BookOpen, Calculator, Palette, Award, Loader2 } from 'lucide-react';
 import { apiService } from '../../services/api';
-import { useUser } from '../../contexts/UserContext';
+import { useParentContext } from '../contexts/ParentContext';
 
 interface Assignment {
   id: number;
@@ -20,7 +20,13 @@ interface Assignment {
 }
 
 export function PerformancePage() {
-  const { user: currentUser } = useUser();
+  const { state } = useParentContext();
+  const currentUser = state.user;
+  const dashboard = state.dashboard;
+  
+  // Log user ID for debugging
+  console.log('PerformancePage - Current User ID:', currentUser?.id);
+  
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -166,7 +172,7 @@ export function PerformancePage() {
       <div>
         <h2 className="text-xl text-gray-900">Progress Report</h2>
         <p className="text-sm text-gray-600">
-          {currentUser?.children_name || 'Your child'}'s learning journey
+          {currentUser?.childName || 'Your child'}'s learning journey
         </p>
       </div>
 
@@ -308,7 +314,7 @@ export function PerformancePage() {
               <p className="text-xs text-blue-800">Assignments Done</p>
             </div>
             <div className="text-center p-3 bg-orange-50 rounded-lg">
-              <p className="text-2xl text-orange-600">{currentUser?.streaks || 0}</p>
+              <p className="text-2xl text-orange-600">{dashboard?.currentStreak || 0}</p>
               <p className="text-xs text-orange-800">Day Streak</p>
             </div>
           </div>
@@ -316,8 +322,8 @@ export function PerformancePage() {
           <div className="mt-4 p-3 bg-green-50 rounded-lg">
             <p className="text-sm text-green-800 text-center">
               {performanceData.gradedAssignments > 0 
-                ? `Great progress! ${currentUser?.children_name || 'Your child'} has completed ${performanceData.gradedAssignments} assignments and earned ${performanceData.totalPoints} points.`
-                : `Keep going! ${currentUser?.children_name || 'Your child'} is just getting started on their learning journey.`
+                ? `Great progress! ${currentUser?.childName || 'Your child'} has completed ${performanceData.gradedAssignments} assignments and earned ${performanceData.totalPoints} points.`
+                : `Keep going! ${currentUser?.childName || 'Your child'} is just getting started on their learning journey.`
               }
             </p>
           </div>
