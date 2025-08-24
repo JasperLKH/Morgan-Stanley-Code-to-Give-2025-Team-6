@@ -10,8 +10,8 @@ class Assignment(models.Model):
     Created by: Jasper
     """
     name = models.CharField(max_length=255)
-    release_date = models.DateField()
-    due_date = models.DateField()
+    release_date = models.DateTimeField()
+    due_date = models.DateTimeField()
     points = models.IntegerField(default=10, help_text="Points awarded for completing this assignment")
 
     questions = models.FileField(
@@ -51,7 +51,7 @@ class Assignment(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.name} (due {self.due_date})"
+        return f"{self.name} (due {self.due_date.strftime('%Y-%m-%d %H:%M')})"
 
     def is_assigned_to_user(self, user) -> bool:
         """Check if this assignment is assigned to a specific user"""
