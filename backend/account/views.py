@@ -1,8 +1,10 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
-from .serializers import UserSerializer, LoginSerializer, UpdateUserNameSerializer
-from .models import User
+from .serializers import UserSerializer, LoginSerializer, UpdateUserNameSerializer, SchoolSerializer
+from .models import User, School
+import random
+import string
 
 @api_view(['POST'])
 def login(request):
@@ -18,7 +20,7 @@ def login(request):
             'children_name': user.children_name,
             'staff_name': user.staff_name,
             'teacher_name': user.teacher_name,
-            'school': user.school,
+            'school': user.school.name if user.school else None,
             'points': user.points,
             'weekly_points': user.weekly_points,
             'streaks': user.current_streak
@@ -44,7 +46,7 @@ def signup(request):
             'children_name': user.children_name,
             'staff_name': user.staff_name,
             'teacher_name': user.teacher_name,
-            'school': user.school,
+            'school': user.school.name if user.school else None,
             'points': user.points,
             'weekly_points': user.weekly_points,
             'streaks': user.current_streak
@@ -80,7 +82,7 @@ def get_all_users(request):
             'children_name': user.children_name,
             'staff_name': user.staff_name,
             'teacher_name': user.teacher_name,
-            'school': user.school,
+            'school': user.school.name if user.school else None,
             'points': user.points,
             'weekly_points': user.weekly_points,
             'streaks': user.current_streak,
@@ -118,7 +120,7 @@ def get_user_by_id(request):
         'children_name': user.children_name,
         'staff_name': user.staff_name,
         'teacher_name': user.teacher_name,
-        'school': user.school,
+        'school': user.school.name if user.school else None,
         'points': user.points,
         'weekly_points': user.weekly_points,
         'streaks': user.current_streak,
@@ -135,12 +137,13 @@ def get_user_by_school(request):
     Query params: school=<school_name>
     """
 
-    school = request.GET.get('school')
-    if not school:
+    school_name = request.GET.get('school')
+    if not school_name:
         return Response({'error': 'Missing query parameter: school'}, status=status.HTTP_400_BAD_REQUEST)
 
     allowed_roles = ['staff', 'teacher', 'parent']
-    users = User.objects.filter(role__in=allowed_roles, school=school)
+    # Since school name is now the primary key, we can filter directly by school name
+    users = User.objects.filter(role__in=allowed_roles, school__name=school_name)
 
     users_data = []
     for user in users:
@@ -152,7 +155,7 @@ def get_user_by_school(request):
             'children_name': user.children_name,
             'staff_name': user.staff_name,
             'teacher_name': user.teacher_name,
-            'school': user.school,
+            'school': user.school.name if user.school else None,
             'points': user.points,
             'weekly_points': user.weekly_points,
             'streaks': user.current_streak,
@@ -237,14 +240,14 @@ def get_weekly_leaderboard(request):
     """
     
     # Get school filter if provided
-    school = request.GET.get('school')
+    school_name = request.GET.get('school')
     
     # Filter parents only
     parents = User.objects.filter(role='parent', is_active=True)
     
     # Apply school filter if provided
-    if school:
-        parents = parents.filter(school=school)
+    if school_name:
+        parents = parents.filter(school__name=school_name)
     
     # Order by weekly_points descending and get top 5
     top_parents = parents.order_by('-weekly_points')[:5]
@@ -257,7 +260,7 @@ def get_weekly_leaderboard(request):
             'username': parent.username,
             'parent_name': parent.parent_name,
             'children_name': parent.children_name,
-            'school': parent.school,
+            'school': parent.school.name if parent.school else None,
             'weekly_points': parent.weekly_points,
             'total_points': parent.points,
             'current_streak': parent.current_streak
@@ -267,7 +270,7 @@ def get_weekly_leaderboard(request):
     return Response({
         'leaderboard': leaderboard_data,
         'total_count': len(leaderboard_data),
-        'school_filter': school if school else 'All schools'
+        'school_filter': school_name if school_name else 'All schools'
     }, status=status.HTTP_200_OK)
 
 
@@ -342,7 +345,7 @@ def update_user_name(request):
         'children_name': user.children_name,
         'staff_name': user.staff_name,
         'teacher_name': user.teacher_name,
-        'school': user.school,
+        'school': user.school.name if user.school else None,
         'points': user.points,
         'weekly_points': user.weekly_points,
         'streaks': user.current_streak,
@@ -356,4 +359,183 @@ def update_user_name(request):
     }, status=status.HTTP_200_OK)
 
 
+@api_view(['GET', 'POST'])
+def school_list_create(request):
+    """
+    GET: Get all schools
+    POST: Create a new school
+    """
+    if request.method == 'GET':
+        schools = School.objects.all().order_by('name')
+        serializer = SchoolSerializer(schools, many=True)
+        return Response({
+            'schools': serializer.data,
+            'total_count': len(serializer.data)
+        }, status=status.HTTP_200_OK)
+    elif request.method == 'POST':
+        serializer = SchoolSerializer(data=request.data)
+        if serializer.is_valid():
+            school = serializer.save()
+            return Response({
+                'school': SchoolSerializer(school).data,
+                'message': f'School "{school.name}" created successfully'
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET', 'PUT', 'DELETE'])
+def school_detail(request, school_identifier):
+    """
+    GET: Get a specific school by name
+    PUT: Update a school name
+    DELETE: Delete a school and unassign users
+    """
+    try:
+        school = School.objects.get(name=school_identifier)
+    except School.DoesNotExist:
+        return Response({'error': 'School not found'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'GET':
+        user_count = school.user_set.count()
+        serializer = SchoolSerializer(school)
+        return Response({
+            'school': serializer.data,
+            'user_count': user_count
+        }, status=status.HTTP_200_OK)
+    elif request.method == 'PUT':
+        serializer = SchoolSerializer(school, data=request.data)
+        if serializer.is_valid():
+            updated_school = serializer.save()
+            return Response({
+                'school': SchoolSerializer(updated_school).data,
+                'message': 'School updated successfully'
+            }, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method == 'DELETE':
+        user_count = school.user_set.count()
+        school.user_set.all().delete()
+        school_name = school.name
+        school.delete()
+        return Response({
+            'message': f'School "{school_name}" and all {user_count} users deleted successfully',
+            'users_deleted': user_count
+        }, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+def get_available_schools(request):
+    """
+    Get all available schools
+    """
+    schools = School.objects.all().order_by('name')
+    school_names = [school.name for school in schools]
+    return Response({
+        'schools': school_names,
+        'total_count': len(school_names)
+    }, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+def school_users(request, school_identifier):
+    """
+    GET: Get all users in a specific school
+    Query params:
+    - role (optional): filter by user role
+    - active_only (optional): only active users (default: true)
+    """
+    try:
+        school = School.objects.get(name=school_identifier)
+    except School.DoesNotExist:
+        return Response({'error': 'School not found'}, status=status.HTTP_404_NOT_FOUND)
+    users = school.user_set.all()
+    role_filter = request.query_params.get('role')
+    if role_filter:
+        users = users.filter(role=role_filter)
+    active_only = request.query_params.get('active_only', 'true').lower() == 'true'
+    if active_only:
+        users = users.filter(is_active=True)
+    users_data = []
+    for user in users:
+        users_data.append({
+            'id': user.id,
+            'username': user.username,
+            'role': user.role,
+            'parent_name': user.parent_name,
+            'children_name': user.children_name,
+            'staff_name': user.staff_name,
+            'teacher_name': user.teacher_name,
+            'points': user.points,
+            'weekly_points': user.weekly_points,
+            'streaks': user.current_streak,
+            'is_active': user.is_active
+        })
+    return Response({
+        'school': school.name,
+        'users': users_data,
+        'total_count': len(users_data),
+        'filters': {
+            'role': role_filter,
+            'active_only': active_only
+        }
+    }, status=status.HTTP_200_OK)
+
+@api_view(['DELETE'])
+def delete_all_users_in_school(request, school_identifier):
+    """
+    DELETE: Delete all users in a specific school
+    """
+    try:
+        school = School.objects.get(name=school_identifier)
+    except School.DoesNotExist:
+        return Response({'error': 'School not found'}, status=status.HTTP_404_NOT_FOUND)
+    users_to_delete = school.user_set.all()
+    user_count = users_to_delete.count()
+    deleted_users = list(users_to_delete.values('id', 'username', 'role'))
+    users_to_delete.delete()
+    return Response({
+        'message': f'Successfully deleted {user_count} users from school "{school.name}"',
+        'deleted_count': user_count,
+        'deleted_users': deleted_users,
+    }, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+def generate_accounts_by_school(request):
+    """
+    POST: Generate accounts for a school
+    JSON body: {"school_name": str, "role": str, "number": int}
+    """
+    school_name = request.data.get('school_name')
+    role = request.data.get('role')
+    number = int(request.data.get('number', 0))
+    if not school_name or not role or number < 1:
+        return Response({'error': 'Missing or invalid parameters'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        school = School.objects.get(name=school_name)
+    except School.DoesNotExist:
+        return Response({'error': 'School not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    accounts = []
+    for i in range(number):
+        # Generate username in format reach00001 to reach99999
+        username_number = random.randint(1, 99999)
+        username = f"reach{username_number:05d}"
+        
+        # Check for duplicates and regenerate if needed
+        while User.objects.filter(username=username).exists():
+            username_number = random.randint(1, 99999)
+            username = f"reach{username_number:05d}"
+        
+        # Generate 8-character password with uppercase, lowercase, and digits
+        password = ''.join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=8))
+        
+        user = User.objects.create(username=username, role=role, school=school)
+        user.set_password(password)
+        user.save()
+        
+        accounts.append({
+            'username': username, 
+            'password': password, 
+            'role': role, 
+            'school': school_name
+        })
+    
+    return Response({
+        'accounts': accounts,
+        'generated_count': len(accounts)
+    }, status=status.HTTP_201_CREATED)

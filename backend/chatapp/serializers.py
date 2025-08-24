@@ -7,9 +7,15 @@ User = get_user_model()
 
 class UserBasicSerializer(serializers.ModelSerializer):
     """Basic user info for chat participants"""
+    school = serializers.SerializerMethodField()  # Return school name only
+    
     class Meta:
         model = User
-        fields = ['id', 'username', 'role', 'parent_name', 'children_name']
+        fields = ['id', 'username', 'role', 'parent_name', 'children_name', 'school']
+    
+    def get_school(self, obj):
+        """Return school name or None if no school is assigned"""
+        return obj.school.name if obj.school else None
 
 
 class MessageSerializer(serializers.ModelSerializer):
