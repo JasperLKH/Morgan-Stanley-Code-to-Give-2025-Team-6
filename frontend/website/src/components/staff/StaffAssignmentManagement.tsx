@@ -106,7 +106,7 @@ interface AccountUser {
 const API_BASE = 'http://localhost:8000';
 
 const withUserHeader = (uid: string | number, init?: RequestInit): RequestInit => ({
-  credentials: 'include',
+  credentials: 'omit',
   ...(init || {}),
   headers: {
     ...(init?.headers || {}),
@@ -548,6 +548,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
           } as Submission;
         });
         setSubmissionsByAssignment((prev) => ({ ...prev, [selectedAssignment.id]: subs }));
+        setSelectedSubmissionId(null);
       }
     } catch (e: any) {
       console.error(e);
