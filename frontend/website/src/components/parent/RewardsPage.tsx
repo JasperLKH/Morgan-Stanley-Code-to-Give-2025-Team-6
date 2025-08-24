@@ -28,7 +28,7 @@ interface Reward {
 }
 
 export function RewardsPage() {
-  const { state } = useParentContext();
+  const { state, t } = useParentContext();
   const currentUser = state.user;
   const dashboard = state.dashboard;
   
@@ -120,7 +120,7 @@ export function RewardsPage() {
     return (
       <div className="p-4 flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-        <span className="ml-2">Loading rewards...</span>
+        <span className="ml-2">{t('rewards.loadingRewards')}</span>
       </div>
     );
   }
@@ -129,9 +129,9 @@ export function RewardsPage() {
     <div className="p-4 space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-xl text-gray-900">Rewards Store</h2>
+        <h2 className="text-xl text-gray-900">{t('rewards.title')}</h2>
         <p className="text-sm text-gray-600">
-          Redeem your points for amazing rewards and vouchers
+          {t('rewards.subtitle')}
         </p>
       </div>
 
@@ -140,27 +140,27 @@ export function RewardsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center space-x-2">
             <Star className="w-5 h-5 text-yellow-600" />
-            <span>Your Points</span>
+            <span>{t('rewards.yourPoints')}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center p-4 bg-blue-50 rounded-lg">
               <p className="text-3xl font-bold text-blue-600">{currentPoints}</p>
-              <p className="text-sm text-blue-800">Total Points</p>
+              <p className="text-sm text-blue-800">{t('rewards.totalPoints')}</p>
             </div>
             <div className="text-center p-4 bg-green-50 rounded-lg">
               <p className="text-3xl font-bold text-green-600">{weeklyPoints}</p>
-              <p className="text-sm text-green-800">This Week</p>
+              <p className="text-sm text-green-800">{t('rewards.thisWeek')}</p>
             </div>
           </div>
           
           {/* Progress to next reward */}
           <div className="mt-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">Progress to next reward</span>
+              <span className="text-sm text-gray-600">{t('rewards.progressToNext')}</span>
               <span className="text-sm text-gray-900">
-                {currentPoints}/100 points
+                {currentPoints}/100 {t('rewards.points')}
               </span>
             </div>
             <Progress value={(currentPoints / 100) * 100} className="h-2" />
@@ -201,11 +201,11 @@ export function RewardsPage() {
                       className={getCategoryColor(reward.category)}
                       variant="secondary"
                     >
-                      {reward.category}
+                      {t(`rewards.${reward.category}`)}
                     </Badge>
                     {!reward.available && (
                       <Badge variant="secondary" className="bg-red-100 text-red-700">
-                        Unavailable
+                        {t('rewards.unavailable')}
                       </Badge>
                     )}
                   </div>
@@ -217,7 +217,7 @@ export function RewardsPage() {
                   <div className="flex items-center space-x-1">
                     <Star className="w-4 h-4 text-yellow-500" />
                     <span className="text-lg font-bold text-purple-600">
-                      {reward.cost} points
+                      {reward.cost} {t('rewards.points')}
                     </span>
                   </div>
                 </div>
@@ -233,17 +233,17 @@ export function RewardsPage() {
                       {!reward.available ? (
                         <>
                           <X className="w-4 h-4 mr-2" />
-                          Unavailable
+                          {t('rewards.unavailable')}
                         </>
                       ) : !canAfford ? (
                         <>
                           <Star className="w-4 h-4 mr-2" />
-                          Need {reward.cost - currentPoints} more points
+                          {t('rewards.needMore')} {reward.cost - currentPoints} {t('rewards.morePoints')}
                         </>
                       ) : (
                         <>
                           <Gift className="w-4 h-4 mr-2" />
-                          Redeem Now
+                          {t('rewards.redeemNow')}
                         </>
                       )}
                     </Button>
@@ -252,9 +252,9 @@ export function RewardsPage() {
                   {selectedReward && (
                     <DialogContent className="max-w-md">
                       <DialogHeader>
-                        <DialogTitle>Redeem Reward</DialogTitle>
+                        <DialogTitle>{t('rewards.redeemReward')}</DialogTitle>
                         <DialogDescription>
-                          Are you sure you want to redeem this reward?
+                          {t('rewards.confirmRedeem')}
                         </DialogDescription>
                       </DialogHeader>
                       
@@ -267,17 +267,17 @@ export function RewardsPage() {
                             <h4 className="font-medium text-gray-900">{selectedReward.name}</h4>
                             <p className="text-sm text-gray-600">{selectedReward.description}</p>
                             <p className="text-sm font-medium text-purple-600">
-                              Cost: {selectedReward.cost} points
+                              {t('rewards.cost')}: {selectedReward.cost} {t('rewards.points')}
                             </p>
                           </div>
                         </div>
                         
                         <div className="bg-blue-50 p-3 rounded-lg">
                           <p className="text-sm text-blue-800">
-                            <strong>Current points:</strong> {currentPoints}
+                            <strong>{t('rewards.currentPoints')}:</strong> {currentPoints}
                           </p>
                           <p className="text-sm text-blue-800">
-                            <strong>After redemption:</strong> {currentPoints - selectedReward.cost}
+                            <strong>{t('rewards.afterRedemption')}:</strong> {currentPoints - selectedReward.cost}
                           </p>
                         </div>
                         
@@ -287,7 +287,7 @@ export function RewardsPage() {
                             className="flex-1"
                             onClick={() => setSelectedReward(null)}
                           >
-                            Cancel
+                            {t('rewards.cancel')}
                           </Button>
                           <Button
                             className="flex-1"
@@ -297,12 +297,12 @@ export function RewardsPage() {
                             {redeeming === selectedReward.id ? (
                               <>
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Redeeming...
+                                {t('rewards.redeeming')}
                               </>
                             ) : (
                               <>
                                 <Check className="w-4 h-4 mr-2" />
-                                Confirm
+                                {t('rewards.confirm')}
                               </>
                             )}
                           </Button>
@@ -322,7 +322,7 @@ export function RewardsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center space-x-2">
             <Trophy className="w-5 h-5 text-orange-600" />
-            <span>How to Earn Points</span>
+            <span>{t('rewards.howToEarn')}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -331,8 +331,8 @@ export function RewardsPage() {
               <Star className="w-4 h-4 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Complete Assignments</p>
-              <p className="text-xs text-gray-600">Earn 5-15 points per assignment</p>
+              <p className="text-sm font-medium text-gray-900">{t('rewards.completeAssignments')}</p>
+              <p className="text-xs text-gray-600">{t('rewards.completeAssignmentsDesc')}</p>
             </div>
           </div>
           
@@ -341,8 +341,8 @@ export function RewardsPage() {
               <Trophy className="w-4 h-4 text-green-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Daily Streak</p>
-              <p className="text-xs text-gray-600">Bonus points for consecutive days</p>
+              <p className="text-sm font-medium text-gray-900">{t('rewards.dailyStreak')}</p>
+              <p className="text-xs text-gray-600">{t('rewards.dailyStreakDesc')}</p>
             </div>
           </div>
           
@@ -351,8 +351,8 @@ export function RewardsPage() {
               <Gift className="w-4 h-4 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Community Participation</p>
-              <p className="text-xs text-gray-600">Engage in forum discussions</p>
+              <p className="text-sm font-medium text-gray-900">{t('rewards.communityParticipation')}</p>
+              <p className="text-xs text-gray-600">{t('rewards.communityParticipationDesc')}</p>
             </div>
           </div>
         </CardContent>
