@@ -4,6 +4,20 @@ from django.db import models
 from datetime import date, timedelta
 from django.utils import timezone
 
+class School(models.Model):
+    """
+    School model with auto-incrementing ID and unique name
+    """
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=200, unique=True, help_text="Name of the school")
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class User(AbstractUser):
     ROLE_CHOICES = [
         ('parent', 'Parent'),
@@ -17,11 +31,13 @@ class User(AbstractUser):
     teacher_name = models.CharField(max_length=100, blank=True, null=True)
     parent_name = models.CharField(max_length=100, blank=True, null=True)
     children_name = models.CharField(max_length=100, blank=True, null=True)
-    school = models.CharField(max_length=200, blank=True, null=True)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, blank=True, null=True, help_text="School the user belongs to")
     points = models.IntegerField(default=0, blank=True, null=True)
     weekly_points = models.IntegerField(default=0, blank=True, null=True)
     streaks = models.IntegerField(default=0, blank=True, null=True)
     last_submission = models.DateField(blank=True, null=True)
+
+    
 
     @property
     def current_streak(self) -> int:

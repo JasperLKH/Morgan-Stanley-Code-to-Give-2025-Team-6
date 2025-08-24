@@ -1,6 +1,13 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
-from .models import User
+from .models import User, School
+
+@admin.register(School)
+class SchoolAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name',)
+    search_fields = ('name',)
+    ordering = ('name',)
+    readonly_fields = ('id',)
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
@@ -21,6 +28,6 @@ class UserAdmin(DjangoUserAdmin):
     # Show all relevant data in the list view
     list_display = ('id', 'username', 'role', 'parent_name', 'children_name', 'staff_name', 'teacher_name', 'school', 'points', 'weekly_points', 'streaks', 'last_submission', 'is_active')
     list_filter = ('role', 'is_active', 'school', 'is_staff', 'is_superuser')
-    search_fields = ('username', 'parent_name', 'children_name', 'staff_name', 'teacher_name', 'school')
+    search_fields = ('username', 'parent_name', 'children_name', 'staff_name', 'teacher_name', 'school__name')
     ordering = ('username',)
     readonly_fields = ('last_submission',)
