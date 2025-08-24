@@ -19,7 +19,11 @@ import {
   Heart,
   CheckCircle,
   Clock,
-  BarChart3
+  BarChart3,
+  Speaker,
+  SpeakerIcon,
+  Voicemail,
+  AudioLinesIcon
 } from 'lucide-react';
 
 interface SubjectProgress {
@@ -49,40 +53,49 @@ export function ChildProgressPage() {
 
   const subjectProgress: SubjectProgress[] = [
     {
-      subject: 'Reading',
-      subjectZh: '閱讀',
-      icon: Book,
+      subject: 'Alphabet recognition',
+      subjectZh: '字母認讀',
+      icon: AudioLinesIcon,
       progress: 85,
       recentScore: 92,
       target: 90,
       color: 'from-blue-400 to-blue-600'
     },
     {
-      subject: 'Mathematics',
-      subjectZh: '數學',
-      icon: Calculator,
+      subject: 'Sight word recognition',
+      subjectZh: '常見字認讀',
+      icon: AudioLinesIcon,
       progress: 78,
       recentScore: 85,
       target: 80,
       color: 'from-emerald-400 to-emerald-600'
     },
     {
-      subject: 'Art & Creativity',
-      subjectZh: '藝術創作',
-      icon: Palette,
+      subject: 'Vocabulary',
+      subjectZh: '詞彙',
+      icon: AudioLinesIcon,
       progress: 95,
       recentScore: 98,
       target: 85,
       color: 'from-purple-400 to-purple-600'
     },
     {
-      subject: 'Communication',
-      subjectZh: '溝通表達',
-      icon: MessageSquare,
+      subject: 'Point and read',
+      subjectZh: '點讀',
+      icon: AudioLinesIcon,
       progress: 88,
       recentScore: 90,
       target: 85,
       color: 'from-orange-400 to-orange-600'
+    },
+    {
+      subject: 'Phonemic awareness',
+      subjectZh: '音素意識',
+      icon: AudioLinesIcon,
+      progress: 90,
+      recentScore: 87,
+      target: 85,
+      color: 'from-yellow-400 to-yellow-600'
     }
   ];
 
@@ -91,31 +104,11 @@ export function ChildProgressPage() {
       id: '1',
       title: 'Reading Star',
       titleZh: '閱讀之星',
-      description: 'Read 5 books this week',
-      descriptionZh: '本週閱讀了5本書',
+      description: 'Read all alphabets correctly',
+      descriptionZh: '正確讀出所有字母',
       icon: Star,
       date: '2024-08-23',
       points: 25
-    },
-    {
-      id: '2',
-      title: 'Math Wizard',
-      titleZh: '數學小天才',
-      description: 'Perfect score on addition quiz',
-      descriptionZh: '加法測驗滿分',
-      icon: Calculator,
-      date: '2024-08-22',
-      points: 20
-    },
-    {
-      id: '3',
-      title: 'Creative Artist',
-      titleZh: '創意藝術家',
-      description: 'Beautiful painting completed',
-      descriptionZh: '完成了美麗的畫作',
-      icon: Palette,
-      date: '2024-08-21',
-      points: 15
     }
   ];
 
@@ -139,7 +132,7 @@ export function ChildProgressPage() {
         </div>
 
         {/* Weekly Summary Card */}
-        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+        {/* <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center space-x-2">
               <BarChart3 className="w-5 h-5 text-emerald-600" />
@@ -191,7 +184,7 @@ export function ChildProgressPage() {
               <Progress value={(weeklyStats.assignmentsCompleted / weeklyStats.totalAssignments) * 100} className="h-3" />
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Subject Performance */}
         <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
