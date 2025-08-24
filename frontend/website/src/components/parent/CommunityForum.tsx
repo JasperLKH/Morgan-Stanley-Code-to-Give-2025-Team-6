@@ -6,7 +6,7 @@ import { Badge } from '../ui/badge';
 import { Textarea } from '../ui/textarea';
 import { Heart, MessageCircle, Share, Plus, Video, Image, BookOpen, Users, Loader2 } from 'lucide-react';
 import { apiService } from '../../services/api';
-import { useUser } from '../../contexts/UserContext';
+import { useParentContext } from '../contexts/ParentContext';
 
 interface Post {
   id: number;
@@ -32,7 +32,8 @@ interface Comment {
 }
 
 export function CommunityForum() {
-  const { user: currentUser } = useUser();
+  const { state } = useParentContext();
+  const currentUser = state.user;
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPost, setNewPost] = useState('');
   const [newPostTitle, setNewPostTitle] = useState('');

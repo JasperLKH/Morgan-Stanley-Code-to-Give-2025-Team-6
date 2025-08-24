@@ -6,7 +6,7 @@ import { Progress } from '../ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Calendar, Upload, Star, Clock, CheckCircle, AlertCircle, Camera, Loader2 } from 'lucide-react';
 import { apiService } from '../../services/api';
-import { useUser } from '../../contexts/UserContext';
+import { useParentContext } from '../contexts/ParentContext';
 
 interface Assignment {
   id: number;
@@ -23,7 +23,12 @@ interface Assignment {
 }
 
 export function AssignmentsPage() {
-  const { user: currentUser } = useUser();
+  const { state } = useParentContext();
+  const currentUser = state.user;
+  
+  // Log user ID for debugging
+  console.log('AssignmentsPage - Current User ID:', currentUser?.id);
+  
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState<number | null>(null);
@@ -125,7 +130,7 @@ export function AssignmentsPage() {
       <div>
         <h2 className="text-xl text-gray-900">Assignments</h2>
         <p className="text-sm text-gray-600">
-          {currentUser?.children_name || 'Your child'}'s learning tasks
+          {currentUser?.childName || 'Your child'}'s learning tasks
         </p>
       </div>
 

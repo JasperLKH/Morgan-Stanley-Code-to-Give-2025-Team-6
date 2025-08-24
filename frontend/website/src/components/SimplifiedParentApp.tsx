@@ -323,7 +323,12 @@ function SimplifiedParentContent({ user, onLogout }: SimplifiedParentAppProps) {
 
 export function SimplifiedParentApp({ user, onLogout }: SimplifiedParentAppProps) {
   return (
-    <ParentProvider>
+    <ParentProvider user={{
+      id: user.id,
+      name: user.name,
+      childName: user.childName,
+      kindergarten: 'Sunshine Kindergarten' // Default value, could be passed from user if available
+    }}>
       <SimplifiedParentContent user={user} onLogout={onLogout} />
     </ParentProvider>
   );

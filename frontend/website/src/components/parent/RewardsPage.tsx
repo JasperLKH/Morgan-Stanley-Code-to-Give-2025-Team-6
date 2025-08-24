@@ -16,7 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { apiService } from '../../services/api';
-import { useUser } from '../../contexts/UserContext';
+import { useParentContext } from '../contexts/ParentContext';
 
 interface Reward {
   id: number;
@@ -28,7 +28,13 @@ interface Reward {
 }
 
 export function RewardsPage() {
-  const { user: currentUser } = useUser();
+  const { state } = useParentContext();
+  const currentUser = state.user;
+  const dashboard = state.dashboard;
+  
+  // Log user ID for debugging
+  console.log('RewardsPage - Current User ID:', currentUser?.id);
+  
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState<number | null>(null);
@@ -107,8 +113,8 @@ export function RewardsPage() {
     }
   };
 
-  const currentPoints = currentUser?.points || 0;
-  const weeklyPoints = currentUser?.weekly_points || 0;
+  const currentPoints = dashboard?.totalPoints || 0;
+  const weeklyPoints = dashboard?.totalPoints || 0; // Note: weeklyPoints might need a separate field in the dashboard
 
   if (loading) {
     return (
