@@ -5,12 +5,7 @@ import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Textarea } from '../ui/textarea';
 import { Clock, CheckCircle, Star, MessageCircle } from 'lucide-react';
-
-interface User {
-  id: string;
-  name: string;
-  role: string;
-}
+import { useStaffContext } from '../contexts/StaffContext';
 
 interface AssignmentSubmission {
   id: string;
@@ -25,10 +20,15 @@ interface AssignmentSubmission {
 }
 
 interface AssignmentManagementProps {
-  user: User;
 }
 
-export function AssignmentManagement({ user }: AssignmentManagementProps) {
+export function AssignmentManagement() {
+  const { state } = useStaffContext();
+  const currentUser = state.user;
+  
+  // Log user ID for debugging
+  console.log('AssignmentManagement - Current User ID:', currentUser?.id);
+  
   const [selectedSubmission, setSelectedSubmission] = useState<string | null>(null);
   const [feedback, setFeedback] = useState('');
   const [grade, setGrade] = useState('');
