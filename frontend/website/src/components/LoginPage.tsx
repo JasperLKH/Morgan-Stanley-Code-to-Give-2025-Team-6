@@ -227,7 +227,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 size="sm"
                 onClick={() => {
                   setUsername('parent1');
-                  setPassword('demo');
+                  setPassword('demo1234');
                 }}
                 className="text-blue-600 border-blue-200 hover:bg-blue-50"
               >
@@ -247,7 +247,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 size="sm"
                 onClick={() => {
                   setUsername('teacher1');
-                  setPassword('demo');
+                  setPassword('demo1234');
                 }}
                 className="text-green-600 border-green-200 hover:bg-green-50"
               >
@@ -267,7 +267,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 size="sm"
                 onClick={() => {
                   setUsername('staff1');
-                  setPassword('demo');
+                  setPassword('demo1234');
                 }}
                 className="text-purple-600 border-purple-200 hover:bg-purple-50"
               >
