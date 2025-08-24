@@ -101,10 +101,20 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
   const pollingRef = useRef<number | null>(null);
   const lastSeenIdsRef = useRef<Set<string>>(new Set());
 
+  const withUserHeader = (init?: RequestInit): RequestInit => ({
+    credentials: 'include',
+    ...(init || {}),
+    headers: {
+      ...(init?.headers || {}),
+      'User-ID': String(teacherId),
+    },
+  });
+
   /** Fetch & map chat messages from backend */
   const fetchChatMessages = async (signal?: AbortSignal) => {
     try {
-      const res = await fetch(`${API_BASE}/chat/messages?teacher_id=${teacherId}`, { signal });
+      const res = await fetch(`${API_BASE}/chat/conversations/`, withUserHeader());
+      console.log('Chat fetch response:', res);
       if (!res.ok) throw new Error(`Failed to fetch messages: ${res.status}`);
       const data: BackendChatMessage[] = await res.json();
 
