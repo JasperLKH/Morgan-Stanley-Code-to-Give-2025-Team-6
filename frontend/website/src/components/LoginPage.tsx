@@ -4,12 +4,12 @@ import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { GraduationCap, Heart, Users, HelpCircle, Star, Flame, Trophy, MessageCircle } from 'lucide-react';
+import { GraduationCap, Heart, Users, HelpCircle, Star, Flame, Trophy, MessageCircle, BookOpen } from 'lucide-react';
 
 interface User {
   id: string;
   name: string;
-  role: 'parent' | 'teacher' | 'staff';
+  role: 'parent' | 'teacher' | 'staff' | 'student';
   childName?: string;
 }
 
@@ -18,6 +18,48 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(''); // Add error state
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:8000/account/login/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Adjust this mapping to match your backend's user object
+        const user = {
+          id: data.user.id,
+          name: data.user.role === 'parent' ? data.user.parent_name : 
+           data.user.role === 'teacher' ? data.user.teacher_name :
+           data.user.role === 'staff' ? data.user.staff_name : 
+           data.user.username,
+          role: data.user.role,
+          childName: data.user.children_name,
+        };
+        onLogin(user);
+      } else {
+        setError('Invalid username or password');
+      }
+    } catch (error) {
+      setError('Network error. Please try again.');
+    }
+    setLoading(false);
+  };
+
+/*export function LoginPage({ onLogin }: LoginPageProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,6 +78,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         user = { id: '2', name: 'Miss Wong', role: 'teacher' };
       } else if (username === 'staff1') {
         user = { id: '3', name: 'David Lee', role: 'staff' };
+      } else if (username.startsWith('reach')) {
+        // Handle student accounts (reach00001, reach00002, etc.)
+        user = { id: username, name: '', role: 'student' };
       } else {
         user = { id: '1', name: 'Sarah Chen', role: 'parent', childName: 'Emma Chen' };
       }
@@ -43,7 +88,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       onLogin(user);
       setLoading(false);
     }, 1000);
-  };
+  };*/
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
@@ -185,7 +230,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 size="sm"
                 onClick={() => {
                   setUsername('parent1');
-                  setPassword('demo');
+                  setPassword('demo1234');
                 }}
                 className="text-blue-600 border-blue-200 hover:bg-blue-50"
               >
@@ -205,7 +250,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 size="sm"
                 onClick={() => {
                   setUsername('teacher1');
-                  setPassword('demo');
+                  setPassword('demo1234');
                 }}
                 className="text-green-600 border-green-200 hover:bg-green-50"
               >
@@ -225,9 +270,29 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 size="sm"
                 onClick={() => {
                   setUsername('staff1');
-                  setPassword('demo');
+                  setPassword('demo1234');
                 }}
                 className="text-purple-600 border-purple-200 hover:bg-purple-50"
+              >
+                Try
+              </Button>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <BookOpen className="w-4 h-4 text-orange-600" />
+                <div>
+                  <p className="text-sm text-orange-800">Student</p>
+                  <p className="text-xs text-orange-600">username: reach00001</p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setUsername('reach00001');
+                  setPassword('demo');
+                }}
+                className="text-orange-600 border-orange-200 hover:bg-orange-50"
               >
                 Try
               </Button>

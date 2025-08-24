@@ -274,8 +274,8 @@ def submit_assignment(request, assignment_pk):
         return Response({'detail': 'Assignment is not available'}, status=status.HTTP_404_NOT_FOUND)
     
     # Check if assignment is still accepting submissions (not past due date)
-    today = timezone.now().date()
-    if today > assignment.due_date:
+    now = timezone.now()
+    if now > assignment.due_date:
         return Response({'detail': 'Assignment deadline has passed'}, status=status.HTTP_400_BAD_REQUEST)
     
     # Check if user already has a submission for this assignment
@@ -362,8 +362,8 @@ def edit_submission(request, submission_pk):
         return Response({'detail': 'You can only edit your own submissions'}, status=status.HTTP_403_FORBIDDEN)
     
     # Check if assignment is still accepting submissions (not past due date)
-    today = timezone.now().date()
-    if today > submission.assignment.due_date:
+    now = timezone.now()
+    if now > submission.assignment.due_date:
         return Response({'detail': 'Assignment deadline has passed'}, status=status.HTTP_400_BAD_REQUEST)
     
     # Check if assignment is not hidden
