@@ -20,21 +20,16 @@ const withUserHeader = (init?: RequestInit): RequestInit => ({
   },
 });
 
-interface User {
-  id: number | string;
-  name?: string;
-  role: string;
-}
-interface StaffChatProps { user?: User }
-
 type Role = 'parent' | 'teacher' | 'staff';
+
 interface ApiUser {
   id: number;
   username: string;
   role: Role;
-  parent_name?: string;
-  children_name?: string;
+  parent_name?: string | null;
+  children_name?: string | null;
 }
+
 interface ApiMessage {
   id: number;
   conversation: number;
@@ -43,6 +38,7 @@ interface ApiMessage {
   attachment: string | null;
   created_at: string;
 }
+
 interface ApiConversation {
   id: number;
   name: string | null;
@@ -53,6 +49,7 @@ interface ApiConversation {
   updated_at: string;
   last_message: ApiMessage | null;
 }
+
 type ChatBubble = {
   id: string | number;
   type: 'sent' | 'received';
@@ -62,21 +59,27 @@ type ChatBubble = {
   timestampISO: string;
 };
 
-export function StaffChat({ user }: StaffChatProps) {
+export function StaffChat() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
 
+  // conversations + selection
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
   const [selectedConv, setSelectedConv] = useState<ApiConversation | null>(null);
 
+  // messages & composer
   const [messages, setMessages] = useState<ChatBubble[]>([]);
   const [composerText, setComposerText] = useState('');
   const [composerFile, setComposerFile] = useState<File | null>(null);
 
+  // directory (all users) + search
+  const [allUsers, setAllUsers] = useState<ApiUser[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDirectory, setShowDirectory] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ----- load conversations
+  /* -------------------- load conversations -------------------- */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -98,7 +101,26 @@ export function StaffChat({ user }: StaffChatProps) {
     return () => { alive = false; };
   }, []);
 
-  // helper to load messages for a conversation
+  /* -------------------- load ALL users (directory) -------------------- */
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/account/users/`, withUserHeader());
+        if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
+        const data: { users: ApiUser[] } = await res.json();
+        if (!alive) return;
+        // exclude self
+        setAllUsers((data.users || []).filter(u => u.id !== CURRENT_STAFF.id));
+      } catch (e) {
+        // non-fatal for chat
+        console.warn(e);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  /* -------------------- helper: fetch messages for a conversation -------------------- */
   const fetchMessages = async (convId: number) => {
     const res = await fetch(`${API_BASE}/chat/conversations/${convId}/messages/list`, withUserHeader());
     if (!res.ok) throw new Error(`Failed to load messages (${res.status})`);
@@ -114,7 +136,7 @@ export function StaffChat({ user }: StaffChatProps) {
     setMessages(mapped);
   };
 
-  // ----- load messages when selection changes
+  /* -------------------- load messages when selection changes -------------------- */
   useEffect(() => {
     if (!selectedConv) { setMessages([]); return; }
     let alive = true;
@@ -131,7 +153,7 @@ export function StaffChat({ user }: StaffChatProps) {
     return () => { alive = false; };
   }, [selectedConv]);
 
-  // auto-scroll on new messages
+  /* -------------------- autoscroll -------------------- */
   useEffect(() => {
     if (scrollRef.current) {
       setTimeout(() => {
@@ -142,7 +164,7 @@ export function StaffChat({ user }: StaffChatProps) {
     }
   }, [messages, selectedConv]);
 
-  // contacts for the list/tabs
+  /* -------------------- contacts from conversations (left list) -------------------- */
   const contacts = useMemo(() => {
     return conversations.map((c) => {
       const other = c.participants.find((p) => p.id !== CURRENT_STAFF.id) || c.participants[0];
@@ -152,19 +174,74 @@ export function StaffChat({ user }: StaffChatProps) {
           ? (other?.parent_name || other?.username)
           : (c.name || `Group #${c.id}`),
         role: (other?.role || 'parent') as 'parent' | 'teacher',
-        childName: other?.children_name,
+        childName: other?.children_name || undefined,
         lastMessage: c.last_message?.text || (c.last_message?.attachment ? 'Attachment' : ''),
         lastMessageTime: c.last_message?.created_at || c.updated_at,
+        otherUserId: other?.id,
       };
     });
   }, [conversations]);
 
-  const filteredContacts = contacts.filter((c) => {
-    const q = searchQuery.toLowerCase();
-    return c.name.toLowerCase().includes(q) || (c.childName && c.childName.toLowerCase().includes(q));
-  });
-  const parentContacts = filteredContacts.filter((c) => c.role === 'parent');
-  const teacherContacts = filteredContacts.filter((c) => c.role === 'teacher');
+  const parentContacts = contacts.filter((c) => c.role === 'parent');
+  const teacherContacts = contacts.filter((c) => c.role === 'teacher');
+
+  /* -------------------- directory search (users) -------------------- */
+  const filteredDirectory: ApiUser[] = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    setShowDirectory(true);
+    return allUsers
+      .filter(u =>
+        (u.username || '').toLowerCase().includes(q) ||
+        (u.parent_name || '').toLowerCase().includes(q) ||
+        (u.children_name || '').toLowerCase().includes(q) ||
+        (u.role || '').toLowerCase().includes(q)
+      )
+      .slice(0, 25);
+  }, [searchQuery, allUsers]);
+
+  /* -------------------- open OR create a private conversation -------------------- */
+  const openOrCreateConversation = async (targetUserId: number) => {
+    // 1) try to find an existing private conversation with this user
+    const existing = conversations.find(
+      (c) =>
+        c.conversation_type === 'private' &&
+        c.participants.some((p) => p.id === targetUserId) &&
+        c.participants.some((p) => p.id === CURRENT_STAFF.id)
+    );
+    if (existing) {
+      setSelectedConv(existing);
+      return;
+    }
+
+    // 2) else create it
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/chat/conversations/create/`, {
+        method: 'POST',
+        headers: {
+          'User-ID': String(CURRENT_STAFF.id),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ participant_id: targetUserId }),
+      });
+      if (!res.ok) throw new Error(`Create conversation failed (${res.status})`);
+      const created: { conversation: ApiConversation } | ApiConversation = await res.json();
+      const convo = (created as any).conversation ?? (created as ApiConversation);
+
+      // push to list if not present
+      setConversations((prev) => {
+        const already = prev.find((c) => c.id === convo.id);
+        return already ? prev : [convo, ...prev];
+      });
+      setSelectedConv(convo);
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Failed creating conversation');
+    } finally {
+      setLoading(false);
+      setShowDirectory(false);
+    }
+  };
 
   const avatarInitials = (name: string) =>
     name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -175,7 +252,7 @@ export function StaffChat({ user }: StaffChatProps) {
     const displayName = selectedConv.conversation_type === 'private'
       ? (other?.parent_name || other?.username)
       : (selectedConv.name || `Group #${selectedConv.id}`);
-    return { displayName, role: other?.role || 'parent', childName: other?.children_name, lastActive: selectedConv.updated_at };
+    return { displayName, role: (other?.role || 'parent') as Role, childName: other?.children_name, lastActive: selectedConv.updated_at };
   }, [selectedConv]);
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,13 +260,11 @@ export function StaffChat({ user }: StaffChatProps) {
     if (f) setComposerFile(f);
   };
 
-  // ***** UPDATED: send to API *****
   const sendMessage = async () => {
     if (!selectedConv) return;
     const hasText = composerText.trim().length > 0;
     if (!hasText && !composerFile) return;
 
-    // optimistic bubble
     const localId = `${Date.now()}`;
     setMessages((prev) => [
       ...prev,
@@ -204,49 +279,30 @@ export function StaffChat({ user }: StaffChatProps) {
     ]);
 
     try {
-      console.log('Sending message...', { text: composerText, conv_id: selectedConv.id });
       const url = `${API_BASE}/chat/conversations/${selectedConv.id}/messages/`;
+      let res: Response;
 
-      try {
-        let res;
-
-        if (composerFile) {
-          // multipart for attachments
-          const form = new FormData();
-          if (composerText.trim()) {
-            form.append('text', composerText.trim());
-          }
-          form.append('attachment', composerFile);
-
-          res = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'User-ID': String(CURRENT_STAFF.id), // ✅ keep header same as curl
-            },
-            body: form, // ✅ let browser set Content-Type for multipart
-          });
-        } else {
-          // JSON for plain text
-          res = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'User-ID': String(CURRENT_STAFF.id), // ✅ same as curl
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ text: composerText.trim() }), // ✅ same as curl
-          });
-        }
-
-        if (!res.ok) throw new Error(`Send failed (${res.status})`);
-
-        // refresh messages from server so we get real IDs/ordering
-        await fetchMessages(selectedConv.id);
-      } catch (err) {
-        console.error(err);
+      if (composerFile) {
+        const form = new FormData();
+        if (composerText.trim()) form.append('text', composerText.trim());
+        form.append('attachment', composerFile);
+        res = await fetch(url, {
+          method: 'POST',
+          headers: { 'User-ID': String(CURRENT_STAFF.id) },
+          body: form,
+        });
+      } else {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: { 'User-ID': String(CURRENT_STAFF.id), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: composerText.trim() }),
+        });
       }
+
+      if (!res.ok) throw new Error(`Send failed (${res.status})`);
+      await fetchMessages(selectedConv.id);
     } catch (err) {
       console.error(err);
-      // rollback optimistic bubble if needed
       setMessages((prev) => prev.filter((m) => m.id !== localId));
     } finally {
       setComposerText('');
@@ -265,24 +321,63 @@ export function StaffChat({ user }: StaffChatProps) {
       {errorMsg && <p className="text-sm text-red-600">{errorMsg}</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Contacts */}
+        {/* Contacts + Directory Search */}
         <Card className="lg:col-span-1">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Contacts</CardTitle>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
-                placeholder="Search contacts..."
+                placeholder="Search parents / teachers / staff..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setShowDirectory(true)}
                 className="pl-10"
               />
+              {/* directory results popover */}
+              {showDirectory && searchQuery.trim() && (
+                <div
+                  className="absolute z-20 mt-2 w-full max-h-72 overflow-auto rounded-md border bg-white shadow"
+                  onMouseLeave={() => setShowDirectory(false)}
+                >
+                  {filteredDirectory.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
+                  ) : (
+                    filteredDirectory.map(u => {
+                      const display = u.parent_name || u.username;
+                      const badge =
+                        u.role === 'parent' ? <Heart className="w-3 h-3 text-blue-500" /> :
+                        u.role === 'teacher' ? <GraduationCap className="w-3 h-3 text-green-500" /> :
+                        <MessageCircle className="w-3 h-3 text-gray-500" />;
+                      return (
+                        <button
+                          key={u.id}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center space-x-3"
+                          onClick={() => openOrCreateConversation(u.id)}
+                        >
+                          <Avatar className="w-8 h-8">
+                            <AvatarFallback className={`${u.role === 'parent' ? 'bg-blue-500' : u.role === 'teacher' ? 'bg-green-500' : 'bg-gray-500'} text-white`}>
+                              {avatarInitials(display)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-900 truncate">{display}</p>
+                            {u.children_name && <p className="text-xs text-gray-500 truncate">Child: {u.children_name}</p>}
+                          </div>
+                          {badge}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </div>
           </CardHeader>
+
           <CardContent className="p-0">
             <Tabs defaultValue="all">
               <TabsList className="w-full px-4">
-                <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
+                <TabsTrigger value="all" className="flex-1">Recent</TabsTrigger>
                 <TabsTrigger value="parents" className="flex-1">Parents</TabsTrigger>
                 <TabsTrigger value="teachers" className="flex-1">Teachers</TabsTrigger>
               </TabsList>
@@ -290,7 +385,7 @@ export function StaffChat({ user }: StaffChatProps) {
               {/* All */}
               <TabsContent value="all" className="mt-0">
                 <ScrollArea className="h-[500px]">
-                  {filteredContacts.map((c) => (
+                  {contacts.map((c) => (
                     <div
                       key={c.id}
                       onClick={() => setSelectedConv(conversations.find((cv) => cv.id === c.id) || null)}
@@ -379,14 +474,16 @@ export function StaffChat({ user }: StaffChatProps) {
               <CardHeader className="pb-0">
                 <div className="flex items-center space-x-3">
                   <Avatar className="w-10 h-10">
-                    <AvatarFallback className={`text-white ${selectedHeader.role === 'parent' ? 'bg-blue-500' : 'bg-green-500'}`}>
+                    <AvatarFallback className={`text-white ${selectedHeader.role === 'parent' ? 'bg-blue-500' : selectedHeader.role === 'teacher' ? 'bg-green-500' : 'bg-gray-500'}`}>
                       {avatarInitials(selectedHeader.displayName)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <div className="flex items-center space-x-2">
                       <h3 className="text-lg text-gray-900">{selectedHeader.displayName}</h3>
-                      {selectedHeader.role === 'parent' ? <Heart className="w-4 h-4 text-blue-500" /> : <GraduationCap className="w-4 h-4 text-green-500" />}
+                      {selectedHeader.role === 'parent'
+                        ? <Heart className="w-4 h-4 text-blue-500" />
+                        : <GraduationCap className="w-4 h-4 text-green-500" />}
                     </div>
                     {selectedHeader.childName && <p className="text-sm text-gray-600">Child: {selectedHeader.childName}</p>}
                   </div>

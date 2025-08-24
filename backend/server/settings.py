@@ -141,7 +141,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Allow all headers for development
 CORS_ALLOW_ALL_ORIGINS = True  # Set to True only for development if needed
-CORS_ALLOWED_HEADERS = [
+CORS_ALLOW_HEADERS = [
     '*',  # allow all headers
     'accept',
     'accept-encoding',

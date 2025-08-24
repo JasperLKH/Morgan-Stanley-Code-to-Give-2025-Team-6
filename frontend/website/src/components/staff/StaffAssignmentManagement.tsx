@@ -20,6 +20,7 @@ import {
   FileCheck2,
   Users,
   Star,
+  Save,
 } from 'lucide-react';
 
 /* ------------------------------------------------------------------ */
@@ -60,6 +61,13 @@ interface Assignment {
   averageScore?: number;
 }
 
+interface SubmissionAttachment {
+  id: number;
+  submission: number;
+  kind: string;
+  blob: string; // "/media/....pdf"
+}
+
 interface Submission {
   id: number;
   user: { id: number; username: string; role: string };
@@ -74,9 +82,9 @@ interface Submission {
   created_at: string;
   updated_at: string;
 
-  file_url?: string | null;
-  thumbnail_url?: string | null;
+  attachments?: SubmissionAttachment[];
 
+  file_url?: string | null; // derived from first attachment.blob
   submittedDate?: string;
   assignmentTitle?: string;
 }
@@ -96,6 +104,15 @@ interface AccountUser {
 /* ------------------------------------------------------------------ */
 
 const API_BASE = 'http://localhost:8000';
+
+const withUserHeader = (uid: string | number, init?: RequestInit): RequestInit => ({
+  credentials: 'include',
+  ...(init || {}),
+  headers: {
+    ...(init?.headers || {}),
+    'User-ID': String(uid),
+  },
+});
 
 /* ------------------------------------------------------------------ */
 /* Component                                                           */
@@ -189,7 +206,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<number | null>(null);
   const selectedAssignment = assignments.find(a => a.id === selectedAssignmentId) || null;
 
-  // inline edit (kept, but you can hide if not needed)
+  // edit mode
   const [editDetails, setEditDetails] = useState(false);
   const [editForm, setEditForm] = useState<{
     title: string;
@@ -202,55 +219,73 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
     answerFile?: File | null;
   } | null>(null);
 
+  // recipients when editing
+  const [editStudentIds, setEditStudentIds] = useState<number[]>([]);
+  const [editSchools, setEditSchools] = useState<string[]>([]);
+  const toggleEditStudent = (id: number) =>
+    setEditStudentIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const toggleEditSchool = (name: string) =>
+    setEditSchools((prev) => (prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]));
+  const resolvedEditAssignedTo = useMemo(() => {
+    const ids = new Set<number>(editStudentIds);
+    parentAccounts
+      .filter((p) => p.school && editSchools.includes(p.school))
+      .forEach((p) => ids.add(p.id));
+    return Array.from(ids);
+  }, [editStudentIds, editSchools, parentAccounts]);
+
   /* ---------------------------- Grading state ---------------------------- */
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<number | null>(null);
-  const [gradeScore, setGradeScore] = useState('');
-  const [gradeFeedback, setGradeFeedback] = useState('');
+  const [gradeScore, setGradeScore] = useState<string>('');
+  const [gradeFeedback, setGradeFeedback] = useState<string>('');
 
   /* ------------------------------------------------------------------ */
   /* Fetch                                                             */
   /* ------------------------------------------------------------------ */
 
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      setLoading(true);
-      setErrorMsg('');
-      try {
-        const res = await fetch(`${API_BASE}/assignments/`, {
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-        });
-        if (!res.ok) throw new Error(`Failed to load assignments (${res.status})`);
-        const data: any[] = await res.json();
+  const refreshAssignments = async () => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await fetch(`${API_BASE}/assignments/`, {
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(`Failed to load assignments (${res.status})`);
+      const data: any[] = await res.json();
 
-        const normalized: Assignment[] = data.map((a) => ({
-          id: a.id,
-          name: a.name,
-          release_date: a.release_date,
-          due_date: a.due_date,
-          questions: a.questions ?? null,
-          answers: a.answers ?? null,
-          created_by: a.created_by,
-          hidden: a.hidden,
-          title: a.name,
-          description: a.description ?? '',
-          type: (a.type as AssignmentType) ?? 'reading',
-          points: a.points ?? 10,
-          status: (a.status as AssignmentStatus) ?? 'active',
-        }));
+      const normalized: Assignment[] = data.map((a) => ({
+        id: a.id,
+        name: a.name,
+        release_date: a.release_date,
+        due_date: a.due_date,
+        questions: a.questions ?? null,
+        answers: a.answers ?? null,
+        created_by: a.created_by,
+        hidden: a.hidden,
+        title: a.name,
+        description: a.description ?? '',
+        type: (a.type as AssignmentType) ?? 'reading',
+        points: a.points ?? 10,
+        status: (a.status as AssignmentStatus) ?? 'active',
+      }));
 
-        if (isMounted) setAssignments(normalized);
+      setAssignments(normalized);
 
-        // Fetch submissions for stats
-        for (const a of normalized) {
-          try {
-            const subRes = await fetch(`${API_BASE}/assignments/${a.id}/submissions/`, {
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-            });
-            if (!subRes.ok) throw new Error(`Failed to load submissions for assignment ${a.id}`);
-            const subs: Submission[] = (await subRes.json()).map((s: any) => ({
+      // fetch submissions per assignment
+      for (const a of normalized) {
+        try {
+          const subRes = await fetch(`${API_BASE}/assignments/${a.id}/submissions/`, {
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+          });
+          if (!subRes.ok) throw new Error(`Failed to load submissions for assignment ${a.id}`);
+          const rawSubs: any[] = await subRes.json();
+          const subs: Submission[] = rawSubs.map((s) => {
+            const file = Array.isArray(s.attachments) && s.attachments.length > 0
+              ? s.attachments[0].blob
+              : null;
+            return {
               id: s.id,
               user: s.user,
               user_name: s.user_name,
@@ -263,43 +298,45 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
               graded_at: s.graded_at,
               created_at: s.created_at,
               updated_at: s.updated_at,
-              file_url: s.file_url ?? null,
+              attachments: s.attachments,
+              file_url: file ? `${API_BASE}${file}` : null,
               submittedDate: s.created_at,
               assignmentTitle: s.assignment_name,
-            }));
+            };
+          });
 
-            if (!isMounted) return;
+          setSubmissionsByAssignment((prev) => ({ ...prev, [a.id]: subs }));
 
-            setSubmissionsByAssignment((prev) => ({ ...prev, [a.id]: subs }));
-
-            // compute stats on the assignment row
-            setAssignments((prev) =>
-              prev.map((row) => {
-                if (row.id !== a.id) return row;
-                const total = subs.length;
-                const graded = subs.filter((s) => (s.status_display || '').toLowerCase() === 'graded' || s.score != null).length;
-                const pending = total - graded;
-                const avg =
-                  graded > 0
-                    ? Math.round(
-                        (subs.filter((s) => s.score != null).reduce((acc, s) => acc + (s.score as number), 0) / graded) * 100
-                      ) / 100
-                    : 0;
-                return { ...row, totalSubmissions: total, pendingReview: pending, completedReviews: graded, averageScore: avg };
-              })
-            );
-          } catch (e) {
-            console.error(e);
-          }
+          // compute stats
+          setAssignments((prev) =>
+            prev.map((row) => {
+              if (row.id !== a.id) return row;
+              const total = subs.length;
+              const graded = subs.filter((s) => (s.status_display || '').toLowerCase() === 'graded' || s.score != null).length;
+              const pending = total - graded;
+              const avg =
+                graded > 0
+                  ? Math.round(
+                      (subs.filter((s) => s.score != null).reduce((acc, s) => acc + (s.score as number), 0) / graded) * 100
+                    ) / 100
+                  : 0;
+              return { ...row, totalSubmissions: total, pendingReview: pending, completedReviews: graded, averageScore: avg };
+            })
+          );
+        } catch (e) {
+          console.error(e);
         }
-      } catch (e: any) {
-        console.error(e);
-        if (isMounted) setErrorMsg(e.message || 'Failed to load assignments');
-      } finally {
-        if (isMounted) setLoading(false);
       }
-    })();
-    return () => { isMounted = false; };
+    } catch (e: any) {
+      console.error(e);
+      setErrorMsg(e.message || 'Failed to load assignments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshAssignments();
   }, []);
 
   const allSubmissions: Submission[] = useMemo(() => Object.values(submissionsByAssignment).flat(), [submissionsByAssignment]);
@@ -330,8 +367,8 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
   const fileUrl = (rel?: string | null) => (rel ? `${API_BASE}${rel}` : '');
 
   /* ------------------------------------------------------------------ */
-  /* Create + Edit actions                                              */
-/* ------------------------------------------------------------------ */
+  /* Create                                                             */
+  /* ------------------------------------------------------------------ */
 
   const resetCreateForm = () => {
     setNewAssignment({
@@ -359,7 +396,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
       return;
     }
     if (resolvedAssignedTo.length === 0) {
-      alert('Please choose at least one student or school.');
+      alert('Choose at least one student or school.');
       return;
     }
 
@@ -374,33 +411,49 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
       form.append('questions', newAssignment.questionFile);
       if (newAssignment.answerFile) form.append('answers', newAssignment.answerFile);
 
-      // ✅ required: assigned_to (one key per user id)
+      // multiple `assigned_to`
       resolvedAssignedTo.forEach((id) => form.append('assigned_to', String(id)));
 
-      const res = await fetch(`${API_BASE}/assignments/`, {
+      const res = await fetch(`${API_BASE}/assignments/`, withUserHeader(user.id, {
         method: 'POST',
         body: form,
-        credentials: 'include',
-        headers: {
-          'User-ID': String(user.id), // your backend uses header auth
-        },
-      });
+      }));
 
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
         throw new Error(`Create failed (${res.status}): ${txt || 'Unknown error'}`);
       }
 
-      // naive refresh
       setCreateOpen(false);
       resetCreateForm();
-      // reload list
-      const list = await fetch(`${API_BASE}/assignments/`, { credentials: 'include' }).then(r => r.json());
-      setAssignments(list);
+      await refreshAssignments();
     } catch (e: any) {
       console.error(e);
       alert(e.message || 'Create failed');
     }
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* Edit assignment (including assigned_to)                            */
+  /* ------------------------------------------------------------------ */
+
+  const startEdit = (a: Assignment) => {
+    setEditDetails(true);
+    setEditForm({
+      title: a.title || a.name,
+      type: a.type || 'reading',
+      description: a.description || '',
+      releaseDate: a.release_date,
+      dueDate: a.due_date,
+      points: a.points || 10,
+      questionFile: null,
+      answerFile: null,
+    });
+
+    // we don’t have assigned_to list in the row response, so default empty;
+    // you can enhance by adding an endpoint to fetch current recipients.
+    setEditStudentIds([]);
+    setEditSchools([]);
   };
 
   const saveAssignmentEdits = async () => {
@@ -416,21 +469,89 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
       if (editForm.questionFile) form.append('questions', editForm.questionFile);
       if (editForm.answerFile) form.append('answers', editForm.answerFile);
 
-      const res = await fetch(`${API_BASE}/assignments/${selectedAssignment.id}/`, {
+      // update recipients if any selected in UI
+      resolvedEditAssignedTo.forEach((id) => form.append('assigned_to', String(id)));
+
+      const res = await fetch(`${API_BASE}/assignments/${selectedAssignment.id}/`, withUserHeader(user.id, {
         method: 'PATCH',
         body: form,
-        credentials: 'include',
-        headers: { 'User-ID': String(user.id) },
-      });
-      if (!res.ok) throw new Error(`Failed to update (${res.status})`);
+      }));
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`Failed to update (${res.status}): ${txt}`);
+      }
 
       setEditDetails(false);
-      // refresh
-      const list = await fetch(`${API_BASE}/assignments/`, { credentials: 'include' }).then(r => r.json());
-      setAssignments(list);
+      await refreshAssignments();
     } catch (e: any) {
       console.error(e);
       alert(e.message || 'Update failed');
+    }
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* Grade submission (POST /grade/)                                    */
+  /* ------------------------------------------------------------------ */
+
+  const gradeSelectedSubmission = async () => {
+    if (!selectedSubmissionId) return;
+    if (gradeScore === '' && gradeFeedback.trim() === '') {
+      alert('Enter a score and/or feedback.');
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/assignments/submissions/${selectedSubmissionId}/grade/`,
+        withUserHeader(user.id, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'User-ID': String(user.id) },
+          body: JSON.stringify({
+            score: gradeScore === '' ? null : Number(gradeScore),
+            feedback: gradeFeedback,
+          }),
+        })
+      );
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`Grade failed (${res.status}): ${txt}`);
+      }
+
+      // refresh just the current assignment’s submissions
+      if (selectedAssignment) {
+        const subRes = await fetch(`${API_BASE}/assignments/${selectedAssignment.id}/submissions/`, {
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+        const rawSubs: any[] = await subRes.json();
+        const subs = rawSubs.map((s) => {
+          const file = Array.isArray(s.attachments) && s.attachments.length > 0
+            ? s.attachments[0].blob
+            : null;
+          return {
+            id: s.id,
+            user: s.user,
+            user_name: s.user_name,
+            assignment: s.assignment,
+            assignment_name: s.assignment_name,
+            status: s.status,
+            status_display: s.status_display,
+            score: s.score,
+            feedback: s.feedback,
+            graded_at: s.graded_at,
+            created_at: s.created_at,
+            updated_at: s.updated_at,
+            attachments: s.attachments,
+            file_url: file ? `${API_BASE}${file}` : null,
+            submittedDate: s.created_at,
+            assignmentTitle: s.assignment_name,
+          } as Submission;
+        });
+        setSubmissionsByAssignment((prev) => ({ ...prev, [selectedAssignment.id]: subs }));
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || 'Grade failed');
     }
   };
 
@@ -505,27 +626,12 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                   </Button>
                 </div>
 
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setEditDetails(true);
-                    setEditForm({
-                      title: selectedAssignment.title || selectedAssignment.name,
-                      type: selectedAssignment.type || 'reading',
-                      description: selectedAssignment.description || '',
-                      releaseDate: selectedAssignment.release_date,
-                      dueDate: selectedAssignment.due_date,
-                      points: selectedAssignment.points || 10,
-                      questionFile: null,
-                      answerFile: null,
-                    });
-                  }}
-                >
+                <Button variant="outline" onClick={() => startEdit(selectedAssignment)}>
                   Edit
                 </Button>
               </>
             ) : (
-              /* Edit form */
+              /* Edit form + recipients */
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -598,9 +704,6 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                       accept="application/pdf"
                       onChange={(e) => setEditForm(f => ({ ...(f as any), questionFile: e.target.files?.[0] || null }))}
                     />
-                    {selectedAssignment.questions && (
-                      <p className="text-xs text-gray-500 mt-1">Current: {selectedAssignment.questions}</p>
-                    )}
                   </div>
                   <div>
                     <Label>Marking Scheme (optional)</Label>
@@ -609,14 +712,67 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                       accept="application/pdf"
                       onChange={(e) => setEditForm(f => ({ ...(f as any), answerFile: e.target.files?.[0] || null }))}
                     />
-                    {selectedAssignment.answers && (
-                      <p className="text-xs text-gray-500 mt-1">Current: {selectedAssignment.answers}</p>
+                  </div>
+                </div>
+
+                {/* Edit recipients */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-sm">Recipients: Students</Label>
+                      <span className="text-xs text-gray-500">{editStudentIds.length} selected</span>
+                    </div>
+                    <div className="h-56 overflow-auto pr-2 space-y-1">
+                      {parentAccounts.map((p) => {
+                        const label = `${p.parent_name || p.username || 'Parent'}${p.children_name ? ` — Child: ${p.children_name}` : ''}${p.school ? ` — ${p.school}` : ''}`;
+                        const checked = editStudentIds.includes(p.id);
+                        return (
+                          <label key={p.id} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleEditStudent(p.id)}
+                            />
+                            <span className="truncate">{label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-sm">Recipients: Schools</Label>
+                      <span className="text-xs text-gray-500">{editSchools.length} selected</span>
+                    </div>
+                    <div className="h-56 overflow-auto pr-2 space-y-1">
+                      {schoolNames.map((s) => {
+                        const checked = editSchools.includes(s);
+                        return (
+                          <label key={s} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleEditSchool(s)}
+                            />
+                            <span className="truncate">{s}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {resolvedEditAssignedTo.length > 0 && (
+                      <p className="text-xs text-gray-600 mt-2">
+                        Will assign to <b>{resolvedEditAssignedTo.length}</b> unique account(s).
+                      </p>
                     )}
                   </div>
                 </div>
 
                 <div className="flex gap-2">
-                  <Button className="flex-1" onClick={saveAssignmentEdits}>Save</Button>
+                  <Button className="flex-1" onClick={saveAssignmentEdits}>
+                    <Save className="w-4 h-4 mr-1" />
+                    Save
+                  </Button>
                   <Button variant="outline" className="flex-1" onClick={() => setEditDetails(false)}>Cancel</Button>
                 </div>
               </div>
@@ -624,14 +780,14 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
           </CardContent>
         </Card>
 
-        {/* Submissions + Preview + Grading */}
+        {/* Submissions + Preview + Grade */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: submissions list */}
           <Card className="lg:col-span-1">
             <CardContent className="p-4">
-              <h3 className="text-lg text-gray-900 mb-3">Submissions ({(submissionsByAssignment[selectedAssignment.id] || []).length})</h3>
+              <h3 className="text-lg text-gray-900 mb-3">Submissions ({subs.length})</h3>
               <div className="space-y-3">
-                {(submissionsByAssignment[selectedAssignment.id] || []).map((s) => (
+                {subs.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => {
@@ -662,7 +818,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
             </CardContent>
           </Card>
 
-          {/* Right: preview + grade (stub) */}
+          {/* Right: preview + grade */}
           <Card className="lg:col-span-2">
             <CardContent className="p-4">
               {!selectedSubmission ? (
@@ -687,14 +843,55 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                   </div>
 
                   <div className="mb-4">
-                    {/* Add real preview when your backend returns a file URL per submission */}
-                    <div className="rounded-lg border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
-                      Preview placeholder (wire submission file URL here)
+                    {selectedSubmission.file_url ? (
+                      <iframe
+                        title="submission-file"
+                        src={selectedSubmission.file_url}
+                        className="w-full h-[520px] rounded-lg border border-gray-200"
+                      />
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
+                        No attached file.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Score (0–100)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={gradeScore}
+                        onChange={(e) => setGradeScore(e.target.value)}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label>Feedback</Label>
+                      <Textarea
+                        rows={3}
+                        value={gradeFeedback}
+                        onChange={(e) => setGradeFeedback(e.target.value)}
+                        placeholder="Provide constructive feedback"
+                      />
                     </div>
                   </div>
 
-                  <div className="text-sm text-gray-500">
-                    Grading is handled on the staff side in your current setup.
+                  <div className="flex gap-2 mt-4">
+                    <Button onClick={gradeSelectedSubmission}>
+                      <Save className="w-4 h-4 mr-1" />
+                      Save Grade
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setGradeScore('');
+                        setGradeFeedback('');
+                      }}
+                    >
+                      Reset
+                    </Button>
                   </div>
                 </>
               )}
@@ -876,7 +1073,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                   </div>
                   {resolvedAssignedTo.length > 0 && (
                     <p className="text-xs text-gray-600 mt-2">
-                      Will assign to <b>{resolvedAssignedTo.length}</b> unique parent account(s).
+                      Will assign to <b>{resolvedAssignedTo.length}</b> unique account(s).
                     </p>
                   )}
                 </div>
@@ -992,7 +1189,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-gray-800">Open the assignment to view details and grade (in staff workflows).</p>
+                  <p className="text-sm text-gray-800">Open the assignment to view, preview, and grade.</p>
                 </div>
 
                 {(submission.status_display || '').toLowerCase() === 'graded' || submission.score != null ? (
@@ -1011,12 +1208,12 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                       onClick={() => {
                         setSelectedAssignmentId(submission.assignment);
                         setSelectedSubmissionId(submission.id);
-                        setGradeScore('');
-                        setGradeFeedback('');
+                        setGradeScore(submission.score != null ? String(submission.score) : '');
+                        setGradeFeedback(submission.feedback || '');
                       }}
                     >
                       <CheckCircle className="w-4 h-4 mr-1" />
-                      View in Details
+                      Grade in Details
                     </Button>
                     <Button size="sm" variant="outline">
                       <MessageCircle className="w-4 h-4 mr-1" />
