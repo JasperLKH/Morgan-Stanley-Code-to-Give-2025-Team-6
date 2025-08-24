@@ -14,14 +14,12 @@ import {
   Calendar,
   Clock,
   CheckCircle,
-  Eye,
-  Edit,
-  Users,
-  Star,
   MessageCircle,
   ArrowLeft,
   FileText,
   FileCheck2,
+  Users,
+  Star,
 } from 'lucide-react';
 
 /* ------------------------------------------------------------------ */
@@ -43,12 +41,12 @@ interface Assignment {
   name: string;
   release_date: string; // YYYY-MM-DD
   due_date: string;     // YYYY-MM-DD
-  questions?: string | null; // '/media/...pdf'
-  answers?: string | null;   // '/media/...pdf' (optional in your API; we handle gracefully)
+  questions?: string | null;
+  answers?: string | null;
   created_by?: { id: number; username: string; role: string };
   hidden?: boolean;
 
-  // derived / UI fields
+  // derived / UI
   title?: string;
   type?: AssignmentType;
   description?: string;
@@ -69,20 +67,28 @@ interface Submission {
   assignment: number;
   assignment_name: string;
   status: number;
-  status_display: string; // "Submitted" | "Graded"
+  status_display: string;
   score: number | null;
   feedback: string;
   graded_at: string | null;
   created_at: string;
   updated_at: string;
 
-  // Optional file fields (add when backend exposes)
-  file_url?: string | null;     // e.g. '/media/submissions/123.pdf'
+  file_url?: string | null;
   thumbnail_url?: string | null;
 
-  // UI helpers
   submittedDate?: string;
   assignmentTitle?: string;
+}
+
+/** Raw user from /account/users/ */
+interface AccountUser {
+  id: number;
+  username: string;
+  role: 'parent' | 'staff' | 'teacher' | string;
+  parent_name?: string | null;
+  children_name?: string | null;
+  school?: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -91,16 +97,41 @@ interface Submission {
 
 const API_BASE = 'http://localhost:8000';
 
-const authHeaders: HeadersInit = {
-  // Authorization: `Bearer ${token}`,
-};
-
 /* ------------------------------------------------------------------ */
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
 export function StaffAssignmentManagement({ user }: { user: User }) {
+  /* ----------------------------- Recipient data ----------------------------- */
+  const [allAccounts, setAllAccounts] = useState<AccountUser[]>([]);
+  const parentAccounts = useMemo(
+    () => allAccounts.filter((u) => u.role === 'parent'),
+    [allAccounts]
+  );
+  const schoolNames = useMemo(() => {
+    const set = new Set<string>();
+    parentAccounts.forEach((p) => {
+      if (p.school) set.add(p.school);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [parentAccounts]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/account/users/`, { credentials: 'include' });
+        const data = await res.json();
+        const users: AccountUser[] = Array.isArray(data?.users) ? data.users : [];
+        setAllAccounts(users);
+      } catch (e) {
+        console.error('Failed to load accounts', e);
+        setAllAccounts([]);
+      }
+    })();
+  }, []);
+
   /* ---------------------------- Create state ---------------------------- */
+  const [createOpen, setCreateOpen] = useState(false);
   const [newAssignment, setNewAssignment] = useState<{
     title: string;
     type: AssignmentType;
@@ -109,7 +140,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
     dueDate: string;
     points: number;
     questionFile?: File | null;
-    answerFile?: File | null; // optional
+    answerFile?: File | null;
   }>({
     title: '',
     type: 'reading',
@@ -121,6 +152,33 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
     answerFile: null,
   });
 
+  /** Recipient selection */
+  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
+  const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
+  const [studentSearch, setStudentSearch] = useState('');
+
+  const toggleStudent = (id: number) =>
+    setSelectedStudentIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+
+  const toggleSchool = (name: string) =>
+    setSelectedSchools((prev) =>
+      prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]
+    );
+
+  /** Resolve final ids from both sources (unique) */
+  const resolvedAssignedTo = useMemo(() => {
+    const ids = new Set<number>();
+    selectedStudentIds.forEach((id) => ids.add(id));
+    if (selectedSchools.length) {
+      parentAccounts
+        .filter((p) => p.school && selectedSchools.includes(p.school))
+        .forEach((p) => ids.add(p.id));
+    }
+    return Array.from(ids);
+  }, [selectedStudentIds, selectedSchools, parentAccounts]);
+
   /* ----------------------------- Data state ----------------------------- */
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissionsByAssignment, setSubmissionsByAssignment] = useState<Record<number, Submission[]>>({});
@@ -131,7 +189,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<number | null>(null);
   const selectedAssignment = assignments.find(a => a.id === selectedAssignmentId) || null;
 
-  // Details edit mode
+  // inline edit (kept, but you can hide if not needed)
   const [editDetails, setEditDetails] = useState(false);
   const [editForm, setEditForm] = useState<{
     title: string;
@@ -160,7 +218,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
       setErrorMsg('');
       try {
         const res = await fetch(`${API_BASE}/assignments/`, {
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
         });
         if (!res.ok) throw new Error(`Failed to load assignments (${res.status})`);
@@ -172,7 +230,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
           release_date: a.release_date,
           due_date: a.due_date,
           questions: a.questions ?? null,
-          answers: a.answers ?? null, // if your API adds this
+          answers: a.answers ?? null,
           created_by: a.created_by,
           hidden: a.hidden,
           title: a.name,
@@ -188,7 +246,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
         for (const a of normalized) {
           try {
             const subRes = await fetch(`${API_BASE}/assignments/${a.id}/submissions/`, {
-              headers: { 'Content-Type': 'application/json', ...authHeaders },
+              headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
             });
             if (!subRes.ok) throw new Error(`Failed to load submissions for assignment ${a.id}`);
@@ -205,7 +263,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
               graded_at: s.graded_at,
               created_at: s.created_at,
               updated_at: s.updated_at,
-              file_url: s.file_url ?? null, // add when backend provides
+              file_url: s.file_url ?? null,
               submittedDate: s.created_at,
               assignmentTitle: s.assignment_name,
             }));
@@ -271,51 +329,11 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
 
   const fileUrl = (rel?: string | null) => (rel ? `${API_BASE}${rel}` : '');
 
-  const renderPreview = (url?: string | null) => {
-    if (!url) return <p className="text-sm text-gray-500">No file uploaded.</p>;
-    const full = fileUrl(url);
-    const ext = full.split('?')[0].split('#')[0].split('.').pop()?.toLowerCase() || '';
-
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
-      return <img src={full} alt="submission" className="rounded-lg max-h-[480px] object-contain" />;
-    }
-    if (['mp4', 'webm', 'ogg'].includes(ext)) {
-      return <video src={full} controls className="rounded-lg w-full max-h-[520px]" />;
-    }
-    // default to iframe (PDF and others)
-    return (
-      <iframe
-        title="preview"
-        src={full}
-        className="w-full h-[520px] rounded-lg border border-gray-200"
-      />
-    );
-  };
-
   /* ------------------------------------------------------------------ */
-  /* Create + Edit actions (wire to Django by uncommenting)             */
-  /* ------------------------------------------------------------------ */
+  /* Create + Edit actions                                              */
+/* ------------------------------------------------------------------ */
 
-  const createAssignment = async () => {
-    // Commented example – adjust field names to your Django serializer
-    // const form = new FormData();
-    // form.append('name', newAssignment.title);
-    // form.append('release_date', newAssignment.releaseDate);
-    // form.append('due_date', newAssignment.dueDate);
-    // form.append('type', newAssignment.type);
-    // form.append('points', String(newAssignment.points));
-    // form.append('description', newAssignment.description);
-    // if (newAssignment.questionFile) form.append('questions', newAssignment.questionFile);
-    // if (newAssignment.answerFile) form.append('answers', newAssignment.answerFile); // optional
-    // const res = await fetch(`${API_BASE}/assignments/`, {
-    //   method: 'POST',
-    //   body: form,
-    //   credentials: 'include',
-    //   headers: { ...authHeaders },
-    // });
-    // if (!res.ok) alert('Failed to create assignment');
-    console.log('Create Assignment -> wire POST to Django:', newAssignment);
-
+  const resetCreateForm = () => {
     setNewAssignment({
       title: '',
       type: 'reading',
@@ -326,44 +344,94 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
       questionFile: null,
       answerFile: null,
     });
+    setSelectedStudentIds([]);
+    setSelectedSchools([]);
+    setStudentSearch('');
+  };
+
+  const createAssignment = async () => {
+    if (!newAssignment.title || !newAssignment.releaseDate || !newAssignment.dueDate) {
+      alert('Please fill required fields.');
+      return;
+    }
+    if (!newAssignment.questionFile) {
+      alert('Please attach the Question PDF.');
+      return;
+    }
+    if (resolvedAssignedTo.length === 0) {
+      alert('Please choose at least one student or school.');
+      return;
+    }
+
+    try {
+      const form = new FormData();
+      form.append('name', newAssignment.title);
+      form.append('release_date', newAssignment.releaseDate);
+      form.append('due_date', newAssignment.dueDate);
+      form.append('type', newAssignment.type);
+      form.append('points', String(newAssignment.points));
+      form.append('description', newAssignment.description);
+      form.append('questions', newAssignment.questionFile);
+      if (newAssignment.answerFile) form.append('answers', newAssignment.answerFile);
+
+      // ✅ required: assigned_to (one key per user id)
+      resolvedAssignedTo.forEach((id) => form.append('assigned_to', String(id)));
+
+      const res = await fetch(`${API_BASE}/assignments/`, {
+        method: 'POST',
+        body: form,
+        credentials: 'include',
+        headers: {
+          'User-ID': String(user.id), // your backend uses header auth
+        },
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`Create failed (${res.status}): ${txt || 'Unknown error'}`);
+      }
+
+      // naive refresh
+      setCreateOpen(false);
+      resetCreateForm();
+      // reload list
+      const list = await fetch(`${API_BASE}/assignments/`, { credentials: 'include' }).then(r => r.json());
+      setAssignments(list);
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || 'Create failed');
+    }
   };
 
   const saveAssignmentEdits = async () => {
     if (!selectedAssignment || !editForm) return;
-    // Example PATCH/PUT with FormData
-    // const form = new FormData();
-    // form.append('name', editForm.title);
-    // form.append('release_date', editForm.releaseDate);
-    // form.append('due_date', editForm.dueDate);
-    // form.append('type', editForm.type);
-    // form.append('points', String(editForm.points));
-    // form.append('description', editForm.description);
-    // if (editForm.questionFile) form.append('questions', editForm.questionFile);
-    // if (editForm.answerFile) form.append('answers', editForm.answerFile);
-    // const res = await fetch(`${API_BASE}/assignments/${selectedAssignment.id}/`, {
-    //   method: 'PATCH',
-    //   body: form,
-    //   credentials: 'include',
-    //   headers: { ...authHeaders },
-    // });
-    // if (!res.ok) alert('Failed to update assignment');
+    try {
+      const form = new FormData();
+      form.append('name', editForm.title);
+      form.append('release_date', editForm.releaseDate);
+      form.append('due_date', editForm.dueDate);
+      form.append('type', editForm.type);
+      form.append('points', String(editForm.points));
+      form.append('description', editForm.description);
+      if (editForm.questionFile) form.append('questions', editForm.questionFile);
+      if (editForm.answerFile) form.append('answers', editForm.answerFile);
 
-    console.log('Save Assignment Edits -> wire PATCH to Django:', { id: selectedAssignment.id, ...editForm });
-    setEditDetails(false);
-  };
+      const res = await fetch(`${API_BASE}/assignments/${selectedAssignment.id}/`, {
+        method: 'PATCH',
+        body: form,
+        credentials: 'include',
+        headers: { 'User-ID': String(user.id) },
+      });
+      if (!res.ok) throw new Error(`Failed to update (${res.status})`);
 
-  const gradeSubmission = async () => {
-    if (!selectedSubmissionId || !gradeScore || !gradeFeedback) return;
-    // Example PATCH to submissions endpoint:
-    // await fetch(`${API_BASE}/submissions/${selectedSubmissionId}/`, {
-    //   method: 'PATCH',
-    //   headers: { 'Content-Type': 'application/json', ...authHeaders },
-    //   credentials: 'include',
-    //   body: JSON.stringify({ score: Number(gradeScore), feedback: gradeFeedback }),
-    // });
-    console.log('Grade Submission -> wire PATCH to Django:', { selectedSubmissionId, gradeScore, gradeFeedback });
-    setGradeScore('');
-    setGradeFeedback('');
+      setEditDetails(false);
+      // refresh
+      const list = await fetch(`${API_BASE}/assignments/`, { credentials: 'include' }).then(r => r.json());
+      setAssignments(list);
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || 'Update failed');
+    }
   };
 
   /* ------------------------------------------------------------------ */
@@ -388,7 +456,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
               }}
               className="mr-3"
             >
-            <ArrowLeft className="w-4 h-4 mr-1" />
+              <ArrowLeft className="w-4 h-4 mr-1" />
               Back
             </Button>
             <h2 className="text-2xl text-gray-900">Assignment Details</h2>
@@ -398,7 +466,6 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
         {/* Details Card */}
         <Card className="p-10">
           <CardContent className="p-6">
-            {/* TODO: a bit funny margin here */}
             {!editDetails ? (
               <>
                 <div className="flex items-center flex-wrap gap-2 mb-2">
@@ -454,7 +521,6 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                     });
                   }}
                 >
-                  <Edit className="w-4 h-4 mr-1" />
                   Edit
                 </Button>
               </>
@@ -596,7 +662,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
             </CardContent>
           </Card>
 
-          {/* Right: preview + grade */}
+          {/* Right: preview + grade (stub) */}
           <Card className="lg:col-span-2">
             <CardContent className="p-4">
               {!selectedSubmission ? (
@@ -621,38 +687,14 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                   </div>
 
                   <div className="mb-4">
-                    {renderPreview(selectedSubmission.file_url)}
-                    {/* TODO: display submission */}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label>Score (0–100)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={gradeScore}
-                        onChange={(e) => setGradeScore(e.target.value)}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label>Feedback</Label>
-                      <Textarea
-                        rows={3}
-                        value={gradeFeedback}
-                        onChange={(e) => setGradeFeedback(e.target.value)}
-                        placeholder="Provide constructive feedback"
-                      />
+                    {/* Add real preview when your backend returns a file URL per submission */}
+                    <div className="rounded-lg border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
+                      Preview placeholder (wire submission file URL here)
                     </div>
                   </div>
 
-                  <div className="flex gap-2 mt-4">
-                    <Button onClick={gradeSubmission} disabled={!gradeScore || !gradeFeedback}>Save Grade</Button>
-                    <Button variant="outline" onClick={() => {
-                      setGradeScore('');
-                      setGradeFeedback('');
-                    }}>Reset</Button>
+                  <div className="text-sm text-gray-500">
+                    Grading is handled on the staff side in your current setup.
                   </div>
                 </>
               )}
@@ -671,20 +713,20 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
         <h2 className="text-2xl text-gray-900">Assignment Management</h2>
 
         {/* Create Assignment Dialog */}
-        <Dialog>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button className="flex items-center space-x-2">
               <Plus className="w-4 h-4" />
               <span>Create Assignment</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle>Create New Assignment</DialogTitle>
-              <DialogDescription>Add a new assignment for students to complete</DialogDescription>
+              <DialogDescription>Add a new assignment and choose recipients by student or school</DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Assignment Title</Label>
@@ -766,6 +808,77 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                     accept="application/pdf"
                     onChange={(e) => setNewAssignment({ ...newAssignment, answerFile: e.target.files?.[0] || null })}
                   />
+                </div>
+              </div>
+
+              {/* Recipients */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Students list with search + checkboxes */}
+                <div className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm">Select Students</Label>
+                    <span className="text-xs text-gray-500">{selectedStudentIds.length} selected</span>
+                  </div>
+                  <Input
+                    placeholder="Search students (parent name or child name)…"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    className="mb-2"
+                  />
+                  <div className="h-56 overflow-auto pr-2 space-y-1">
+                    {parentAccounts
+                      .filter((p) => {
+                        const q = studentSearch.toLowerCase();
+                        const a = (p.parent_name || p.username || '').toLowerCase();
+                        const b = (p.children_name || '').toLowerCase();
+                        return !q || a.includes(q) || b.includes(q);
+                      })
+                      .map((p) => {
+                        const label = `${p.parent_name || p.username || 'Parent'}${p.children_name ? ` — Child: ${p.children_name}` : ''}${p.school ? ` — ${p.school}` : ''}`;
+                        const checked = selectedStudentIds.includes(p.id);
+                        return (
+                          <label key={p.id} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleStudent(p.id)}
+                            />
+                            <span className="truncate">{label}</span>
+                          </label>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {/* Schools list with checkboxes */}
+                <div className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm">Select Schools</Label>
+                    <span className="text-xs text-gray-500">{selectedSchools.length} selected</span>
+                  </div>
+                  <div className="h-56 overflow-auto pr-2 space-y-1">
+                    {schoolNames.map((s) => {
+                      const checked = selectedSchools.includes(s);
+                      return (
+                        <label key={s} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleSchool(s)}
+                          />
+                          <span className="truncate">{s}</span>
+                        </label>
+                      );
+                    })}
+                    {schoolNames.length === 0 && (
+                      <p className="text-xs text-gray-500">No schools found in parent accounts.</p>
+                    )}
+                  </div>
+                  {resolvedAssignedTo.length > 0 && (
+                    <p className="text-xs text-gray-600 mt-2">
+                      Will assign to <b>{resolvedAssignedTo.length}</b> unique parent account(s).
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -879,7 +992,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-gray-800">Open the assignment to grade with preview, or wire a direct preview URL here when available.</p>
+                  <p className="text-sm text-gray-800">Open the assignment to view details and grade (in staff workflows).</p>
                 </div>
 
                 {(submission.status_display || '').toLowerCase() === 'graded' || submission.score != null ? (
@@ -903,7 +1016,7 @@ export function StaffAssignmentManagement({ user }: { user: User }) {
                       }}
                     >
                       <CheckCircle className="w-4 h-4 mr-1" />
-                      Grade in Details View
+                      View in Details
                     </Button>
                     <Button size="sm" variant="outline">
                       <MessageCircle className="w-4 h-4 mr-1" />

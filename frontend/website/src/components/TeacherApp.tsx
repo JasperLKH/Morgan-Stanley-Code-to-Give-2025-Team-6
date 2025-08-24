@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback } from './ui/avatar';
@@ -7,21 +7,20 @@ import { Progress } from './ui/progress';
 import { HelpDialog } from './HelpDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
-import { 
-  LogOut, 
-  GraduationCap, 
-  Star, 
-  TrendingUp, 
-  BookOpen, 
-  Users, 
+import {
+  LogOut,
+  GraduationCap,
+  Star,
+  TrendingUp,
+  BookOpen,
+  Users,
   MessageCircle,
   Send,
   Calendar,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react';
 
 interface User {
@@ -31,7 +30,7 @@ interface User {
 }
 
 interface Student {
-  id: string;
+  id: number | string;
   name: string;
   parentName: string;
   averageScore: number;
@@ -42,7 +41,7 @@ interface Student {
 }
 
 interface Assignment {
-  id: string;
+  id: string | number;
   title: string;
   type: 'reading' | 'math' | 'writing' | 'art';
   dueDate: string;
@@ -55,10 +54,18 @@ interface Assignment {
 
 interface ChatMessage {
   id: string;
-  sender: string;
+  sender: string; // "You" or "REACH Staff"
   message: string;
-  timestamp: string;
+  timestamp: string; // human readable (e.g., '10:35 AM')
   type: 'sent' | 'received';
+}
+
+interface BackendChatMessage {
+  id: string | number;
+  sender_id: number;
+  sender_role: 'teacher' | 'staff';
+  message: string;
+  timestamp: string; // ISO or human; we’ll format in UI
 }
 
 interface TeacherAppProps {
@@ -66,170 +73,218 @@ interface TeacherAppProps {
   onLogout: () => void;
 }
 
+/** ===== Chat API Config ===== */
+const API_BASE = 'http://localhost:8000';
+const CHAT_POLL_MS = 3000;
+
+/** Utility: format a timestamp into HH:MM AM/PM */
+function formatTime(ts: string) {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) {
+    // fallback if backend already sends friendly text
+    return ts;
+  }
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 export function TeacherApp({ user, onLogout }: TeacherAppProps) {
+  /** --------- Identity (fixed for now as requested) --------- */
+  // Even if a user prop is passed, we hard-assign teacher identity to John (id 8) per the brief.
+  const teacherId = 8;
+  const teacherName = 'John';
+
+  /** -------- Chat state -------- */
   const [chatMessage, setChatMessage] = useState('');
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      sender: 'REACH Staff',
-      message: 'Hello! How can we help you today?',
-      timestamp: '10:30 AM',
-      type: 'received'
-    },
-    {
-      id: '2',
-      sender: 'You',
-      message: 'I need help with grading criteria for the reading assignment.',
-      timestamp: '10:32 AM',
-      type: 'sent'
-    },
-    {
-      id: '3',
-      sender: 'REACH Staff',
-      message: 'Of course! Please check the grading rubric in the assignment details. Focus on comprehension, pronunciation, and engagement.',
-      timestamp: '10:35 AM',
-      type: 'received'
-    }
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const pollingRef = useRef<number | null>(null);
+  const lastSeenIdsRef = useRef<Set<string>>(new Set());
 
-  // const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  /** Fetch & map chat messages from backend */
+  const fetchChatMessages = async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch(`${API_BASE}/chat/messages?teacher_id=${teacherId}`, { signal });
+      if (!res.ok) throw new Error(`Failed to fetch messages: ${res.status}`);
+      const data: BackendChatMessage[] = await res.json();
 
-  // useEffect(() => {
-  //   fetch('http://localhost:8000/chat/messages/')
-  //     .then((response) => response.json())
-  //     .then((data) => setChatMessages(data))
-  //     .catch((error) => console.error('Error fetching chat messages:', error));
-  // }, []);
-
-  // sample data
-  // const students: Student[] = [
-  //   {
-  //     id: '1',
-  //     name: 'Emma Chen',
-  //     parentName: 'Sarah Chen',
-  //     averageScore: 88,
-  //     completedAssignments: 12,
-  //     totalAssignments: 15,
-  //     recentFeedback: 'Excellent progress in reading comprehension. Keep up the great work!',
-  //     status: 'excellent',
-  //   },
-  //   {
-  //     id: '2',
-  //     name: 'Alex Wong',
-  //     parentName: 'Lisa Wong',
-  //     averageScore: 75,
-  //     completedAssignments: 8,
-  //     totalAssignments: 12,
-  //     recentFeedback: 'Good effort in math activities. Could benefit from more practice with addition.',
-  //     status: 'good',
-  //   },
-  //   {
-  //     id: '3',
-  //     name: 'Sophie Lee',
-  //     parentName: 'David Lee',
-  //     averageScore: 65,
-  //     completedAssignments: 5,
-  //     totalAssignments: 8,
-  //     recentFeedback: 'Shows creativity in art activities but needs encouragement with reading tasks.',
-  //     status: 'needs_attention',
-  //   },
-  // ];
-
-  // students fetched from backend, created by julian
-  const [students, setStudents] = useState<Student[]>([]);
-
-  useEffect(() => {
-    fetch('http://localhost:8000/account/users/')
-      .then((response) => response.json())
-      .then((data) => setStudents(data))
-      .catch((error) => console.error('Error fetching students:', error));
-  }, []);
-
-  // // sample data
-  // const assignments: Assignment[] = [
-  //   {
-  //     id: '1',
-  //     title: 'Read "The Little Red Hen"',
-  //     type: 'reading',
-  //     dueDate: 'Dec 25, 2024',
-  //     totalSubmissions: 15,
-  //     pendingReview: 3,
-  //     completedReviews: 12,
-  //     averageScore: 82,
-  //     description: 'Students read the story and discuss with parents'
-  //   },
-  //   {
-  //     id: '2',
-  //     title: 'Practice Writing Numbers 1-5',
-  //     type: 'writing',
-  //     dueDate: 'Dec 26, 2024',
-  //     totalSubmissions: 12,
-  //     pendingReview: 5,
-  //     completedReviews: 7,
-  //     averageScore: 78,
-  //     description: 'Number tracing and writing practice'
-  //   },
-  //   {
-  //     id: '3',
-  //     title: 'Counting with Toys',
-  //     type: 'math',
-  //     dueDate: 'Dec 27, 2024',
-  //     totalSubmissions: 18,
-  //     pendingReview: 1,
-  //     completedReviews: 17,
-  //     averageScore: 85,
-  //     description: 'Count household items and record results'
-  //   },
-  //   {
-  //     id: '4',
-  //     title: 'Draw a Family Picture',
-  //     type: 'art',
-  //     dueDate: 'Dec 28, 2024',
-  //     totalSubmissions: 8,
-  //     pendingReview: 8,
-  //     completedReviews: 0,
-  //     averageScore: 0,
-  //     description: 'Create family artwork and discuss relationships'
-  //   }
-  // ];
-
-  // assignments fetched from backend, created by julian
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-
-  useEffect(() => {
-    fetch('http://localhost:8000/assignments/')
-      .then((response) => response.json())
-      .then((data) => setAssignments(data))
-      .catch((error) => console.error('Error fetching assignments:', error));
-  }, []);
-
-  // sample data
-  const sendMessage = () => {
-    if (chatMessage.trim()) {
-      const newMessage: ChatMessage = {
-        id: Date.now().toString(),
-        sender: 'You',
-        message: chatMessage,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        type: 'sent'
-      };
-      setChatMessages(prev => [...prev, newMessage]);
-      setChatMessage('');
-      
-      // Simulate response
-      setTimeout(() => {
-        const response: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          sender: 'REACH Staff',
-          message: 'Thank you for your message. We\'ll get back to you shortly!',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: 'received'
+      const mapped: ChatMessage[] = (Array.isArray(data) ? data : []).map((m) => {
+        const isTeacher = m.sender_role === 'teacher' && m.sender_id === teacherId;
+        return {
+          id: String(m.id),
+          sender: isTeacher ? 'You' : 'REACH Staff',
+          message: m.message,
+          timestamp: formatTime(m.timestamp),
+          type: isTeacher ? 'sent' : 'received',
         };
-        setChatMessages(prev => [...prev, response]);
-      }, 1000);
+      });
+
+      // Avoid duplicate re-inserts if backend returns the same list repeatedly
+      setChatMessages((prev) => {
+        const seen = new Set<string>();
+        const dedup = [...prev, ...mapped].filter((m) => {
+          if (seen.has(m.id)) return false;
+          seen.add(m.id);
+          return true;
+        });
+        // track IDs we’ve seen to help optimistic update reconciliation
+        lastSeenIdsRef.current = new Set(dedup.map((m) => m.id));
+        return dedup.sort((a, b) => {
+          // We can’t rely on id ordering; create Date from timestamp fallback to original order
+          const ta = a.timestamp;
+          const tb = b.timestamp;
+          return ta.localeCompare(tb);
+        });
+      });
+
+      setChatError(null);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return; // ignore aborts
+      setChatError(err?.message || 'Unable to load messages');
     }
   };
 
+  /** Initial load + start polling */
+  useEffect(() => {
+    const controller = new AbortController();
+    setChatLoading(true);
+    fetchChatMessages(controller.signal).finally(() => setChatLoading(false));
+
+    // Polling
+    pollingRef.current = window.setInterval(() => {
+      fetchChatMessages();
+    }, CHAT_POLL_MS) as unknown as number;
+
+    return () => {
+      controller.abort();
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Send a message to REACH staff */
+  const sendMessage = async () => {
+    const text = chatMessage.trim();
+    if (!text) return;
+
+    // Optimistic update
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: tempId,
+      sender: 'You',
+      message: text,
+      timestamp: formatTime(new Date().toISOString()),
+      type: 'sent',
+    };
+    setChatMessages((prev) => [...prev, optimistic]);
+    setChatMessage('');
+
+    try {
+      const res = await fetch(`${API_BASE}/chat/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teacher_id: teacherId,
+          message: text,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to send message: ${res.status}`);
+      }
+
+      // After successful send, refetch to replace optimistic with real ID & capture staff replies
+      await fetchChatMessages();
+    } catch (err: any) {
+      // Roll back optimistic message on failure
+      setChatMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setChatError(err?.message || 'Failed to send message');
+      // Restore input so they can retry quickly
+      setChatMessage(text);
+    }
+  };
+
+  /** Key handler */
+  const onChatKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  /** -------- Students (from /account/users/) -------- */
+  const [students, setStudents] = useState<Student[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('http://localhost:8000/account/users/');
+        const data = await res.json();
+        const users: any[] = Array.isArray(data?.users) ? data.users : [];
+
+        // Treat each parent as a “student card” for the teacher’s dashboard
+        const mapped: Student[] = users
+          .filter((u) => u.role === 'parent')
+          .map((u) => {
+            const avg = 0; // replace with real field if backend adds it
+            const completed = 0; // "
+            const total = 0; // "
+
+            const status: Student['status'] =
+              avg >= 85 ? 'excellent' : avg >= 70 ? 'good' : 'needs_attention';
+
+            return {
+              id: u.id,
+              name: u.children_name || 'Student',
+              parentName: u.parent_name || u.username || '—',
+              averageScore: avg,
+              completedAssignments: completed,
+              totalAssignments: total,
+              recentFeedback: '', // map a real field when available
+              status,
+            };
+          });
+
+        setStudents(mapped);
+      } catch (err) {
+        console.error('Error fetching students:', err);
+        setStudents([]);
+      }
+    })();
+  }, []);
+
+  /** -------- Assignments (example fetch; adapt mapping to your API) -------- */
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('http://localhost:8000/assignments/');
+        const data = await res.json();
+        setAssignments(
+          (Array.isArray(data) ? data : []).map((a: any) => ({
+            id: a.id,
+            title: a.title ?? a.name ?? 'Assignment',
+            type: (a.type as Assignment['type']) ?? 'reading',
+            dueDate: a.dueDate ?? a.due_date ?? '',
+            totalSubmissions: a.totalSubmissions ?? 0,
+            pendingReview: a.pendingReview ?? 0,
+            completedReviews: a.completedReviews ?? 0,
+            averageScore: a.averageScore ?? 0,
+            description: a.description ?? '',
+          }))
+        );
+      } catch (err) {
+        console.error('Error fetching assignments:', err);
+        setAssignments([]);
+      }
+    })();
+  }, []);
+
+  /** -------- Helpers -------- */
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'excellent':
@@ -245,18 +300,27 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'reading': return 'bg-blue-100 text-blue-800';
-      case 'math': return 'bg-green-100 text-green-800';
-      case 'writing': return 'bg-purple-100 text-purple-800';
-      case 'art': return 'bg-pink-100 text-pink-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'reading':
+        return 'bg-blue-100 text-blue-800';
+      case 'math':
+        return 'bg-green-100 text-green-800';
+      case 'writing':
+        return 'bg-purple-100 text-purple-800';
+      case 'art':
+        return 'bg-pink-100 text-pink-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getAssignmentStatus = (assignment: Assignment) => {
-    if (assignment.pendingReview > 0) {
-      return { icon: Clock, color: 'text-orange-500', text: `${assignment.pendingReview} pending` };
-    } else if (assignment.completedReviews === assignment.totalSubmissions) {
+    const pending = assignment.pendingReview ?? 0;
+    const completed = assignment.completedReviews ?? 0;
+    const total = assignment.totalSubmissions ?? 0;
+
+    if (pending > 0) {
+      return { icon: Clock, color: 'text-orange-500', text: `${pending} pending` };
+    } else if (total > 0 && completed === total) {
       return { icon: CheckCircle, color: 'text-green-500', text: 'All reviewed' };
     } else {
       return { icon: AlertCircle, color: 'text-blue-500', text: 'In progress' };
@@ -265,9 +329,24 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
 
   const classStats = {
     totalStudents: students.length,
-    averageCompletion: students.length > 0 ? Math.round(students.reduce((acc, student) => 
-      acc + (student.completedAssignments / student.totalAssignments), 0) / students.length * 100) : 0,
-    averageScore: students.length > 0 ? Math.round(students.reduce((acc, student) => acc + student.averageScore, 0) / students.length) : 0,
+    averageCompletion:
+      students.length > 0
+        ? Math.round(
+            (students.reduce(
+              (acc, s) =>
+                acc + (s.totalAssignments ? s.completedAssignments / s.totalAssignments : 0),
+              0
+            ) /
+              students.length) *
+              100
+          )
+        : 0,
+    averageScore:
+      students.length > 0
+        ? Math.round(
+            students.reduce((acc, s) => acc + (s.averageScore || 0), 0) / students.length
+          )
+        : 0,
   };
 
   return (
@@ -276,7 +355,7 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div>
           <h1 className="text-xl text-gray-900">REACH Teacher Portal</h1>
-          <p className="text-sm text-gray-600">Welcome, {user.name}</p>
+          <p className="text-sm text-gray-600">Welcome, {teacherName}</p>
         </div>
         <div className="flex items-center space-x-2">
           <HelpDialog userRole="teacher" currentSection="dashboard" />
@@ -348,7 +427,10 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
                         <div className="flex items-center space-x-3">
                           <Avatar className="w-12 h-12">
                             <AvatarFallback className="bg-gray-200 text-gray-600">
-                              {student.name.split(' ').map(n => n[0]).join('')}
+                              {student.name
+                                .split(' ')
+                                .map((n) => n[0])
+                                .join('')}
                             </AvatarFallback>
                           </Avatar>
                           <div>
@@ -363,9 +445,13 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
                         <div>
                           <p className="text-sm text-gray-600 mb-1">Assignment Progress</p>
                           <div className="flex items-center space-x-2">
-                            <Progress 
-                              value={(student.completedAssignments / student.totalAssignments) * 100} 
-                              className="flex-1 h-2" 
+                            <Progress
+                              value={
+                                student.totalAssignments
+                                  ? (student.completedAssignments / student.totalAssignments) * 100
+                                  : 0
+                              }
+                              className="flex-1 h-2"
                             />
                             <span className="text-sm text-gray-600">
                               {student.completedAssignments}/{student.totalAssignments}
@@ -383,7 +469,9 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
 
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-sm text-gray-600 mb-1">Recent Feedback</p>
-                        <p className="text-sm text-gray-800">{student.recentFeedback}</p>
+                        <p className="text-sm text-gray-800">
+                          {student.recentFeedback || '—'}
+                        </p>
                       </div>
 
                       <div className="flex space-x-2 mt-4">
@@ -411,7 +499,7 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
                 {assignments.map((assignment) => {
                   const status = getAssignmentStatus(assignment);
                   const StatusIcon = status.icon;
-                  
+
                   return (
                     <Card key={assignment.id}>
                       <CardContent className="p-4">
@@ -482,6 +570,12 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
               <CardContent className="flex-1 flex flex-col p-0">
                 <ScrollArea className="flex-1 p-4">
                   <div className="space-y-4">
+                    {chatLoading && chatMessages.length === 0 && (
+                      <div className="text-xs text-gray-500">Loading messages…</div>
+                    )}
+                    {chatError && (
+                      <div className="text-xs text-red-500">Error: {chatError}</div>
+                    )}
                     {chatMessages.map((msg) => (
                       <div
                         key={msg.id}
@@ -494,10 +588,12 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
                               : 'bg-gray-100 text-gray-900'
                           }`}
                         >
-                          <p className="text-sm">{msg.message}</p>
-                          <p className={`text-xs mt-1 ${
-                            msg.type === 'sent' ? 'text-blue-100' : 'text-gray-500'
-                          }`}>
+                          <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
+                          <p
+                            className={`text-xs mt-1 ${
+                              msg.type === 'sent' ? 'text-blue-100' : 'text-gray-500'
+                            }`}
+                          >
                             {msg.sender} • {msg.timestamp}
                           </p>
                         </div>
@@ -508,16 +604,19 @@ export function TeacherApp({ user, onLogout }: TeacherAppProps) {
                 <div className="p-4 border-t border-gray-200">
                   <div className="flex space-x-2">
                     <Input
-                      placeholder="Type your message..."
+                      placeholder="Type your message to REACH Staff…"
                       value={chatMessage}
                       onChange={(e) => setChatMessage(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                      onKeyDown={onChatKeyDown}
                       className="flex-1"
                     />
                     <Button onClick={sendMessage} disabled={!chatMessage.trim()}>
                       <Send className="w-4 h-4" />
                     </Button>
                   </div>
+                  <p className="text-[11px] text-gray-500 mt-2">
+                    You’re messaging <strong>REACH Staff</strong>. Teachers cannot message other teachers or parents.
+                  </p>
                 </div>
               </CardContent>
             </Card>
