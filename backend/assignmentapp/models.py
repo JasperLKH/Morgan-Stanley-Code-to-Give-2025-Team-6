@@ -137,14 +137,6 @@ class AssignmentSubmission(models.Model):
         self.graded_at = when or timezone.now()
         self.save(update_fields=["status", "score", "feedback", "graded_at", "updated_at"])
         
-        # Award points to user if this is the first time being graded and score is passing
-        if not was_already_graded and score is not None and score >= 70:  # Assuming 70% is passing
-            points_to_award = self.assignment.points
-            if hasattr(self.user, 'points') and self.user.points is not None:
-                self.user.points += points_to_award
-            else:
-                self.user.points = points_to_award
-            self.user.save(update_fields=['points'])
 
 class SubmissionAttachment(models.Model):
     """
