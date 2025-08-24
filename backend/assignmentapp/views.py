@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, parser_classes
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
@@ -27,7 +27,7 @@ def get_user(request):
         return False, None
 
 @api_view(['GET', 'POST'])
-@parser_classes([MultiPartParser, FormParser])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 def assignment_list_create(request):
     """
     GET: List all assignments (staff only)
@@ -87,7 +87,7 @@ def user_assignments(request, user_id):
 
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
-@parser_classes([MultiPartParser, FormParser])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 def assignment_detail(request, pk):
     """
     GET: Retrieve an assignment
@@ -135,6 +135,7 @@ def assignment_unhide(request, pk):
 
 
 @api_view(['POST'])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 def assignment_update_deadline(request, pk):
     """Update assignment deadline (staff only)"""
 
@@ -164,6 +165,7 @@ def assignment_submissions(request, assignment_pk):
 
 
 @api_view(['POST'])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 def grade_submission(request, submission_pk):
     """Grade a submission (staff only)"""
 
@@ -177,33 +179,53 @@ def grade_submission(request, submission_pk):
 
 
 @api_view(['PATCH'])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 def update_submission_feedback(request, submission_pk):
-    """Update feedback for a submission (staff only)"""
+    """Update feedback and/or score for a submission (staff only)"""
 
     submission = get_object_or_404(AssignmentSubmission, pk=submission_pk)
     feedback = request.data.get('feedback')
+    score = request.data.get('score')
     
-    if feedback is None:
-        return Response({'detail': 'feedback is required'}, status=status.HTTP_400_BAD_REQUEST)
+    # Check if at least one field is provided
+    if feedback is None and score is None:
+        return Response({'detail': 'At least feedback or score is required'}, status=status.HTTP_400_BAD_REQUEST)
     
-    submission.feedback = feedback
-    submission.save(update_fields=['feedback', 'updated_at'])
+    # Update fields if provided
+    updated_fields = ['updated_at']
+    
+    if feedback is not None:
+        submission.feedback = feedback
+        updated_fields.append('feedback')
+    
+    if score is not None:
+        submission.score = score
+        updated_fields.append('score')
+        
+        # If we're updating the score and submission isn't graded yet, mark it as graded
+        if submission.status != AssignmentSubmission.STATUS_GRADED:
+            submission.status = AssignmentSubmission.STATUS_GRADED
+            submission.graded_at = timezone.now()
+            updated_fields.extend(['status', 'graded_at'])
+    
+    submission.save(update_fields=updated_fields)
     
     # TODO: Implement user notification system
-    # TODO: Notify the student that feedback has been updated
-    # TODO: Send push notification or email to student about feedback update
+    # TODO: Notify the student that feedback/score has been updated
+    # TODO: Send push notification or email to student about feedback/score update
     # TODO: Create notification record in database for student dashboard
     
     serializer = AssignmentSubmissionSerializer(submission)
     return Response({
-        'status': 'feedback_updated',
+        'status': 'updated',
         'submission_id': submission.id,
-        'message': 'Feedback updated successfully',
+        'message': 'Feedback and/or score updated successfully',
         'data': serializer.data
     })
 
 
 @api_view(['POST'])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 def assign_to_parents(request, assignment_pk):
     """Assign an assignment to specific parents (staff only)"""
     user = get_user(request)
