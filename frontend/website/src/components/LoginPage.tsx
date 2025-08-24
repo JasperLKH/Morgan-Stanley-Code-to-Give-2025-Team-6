@@ -222,7 +222,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <div className="flex items-center space-x-3">
                 <Heart className="w-4 h-4 text-blue-600" />
                 <div>
-                  <p className="text-sm text-blue-800">Parent 1 (graded assignment)</p>
+                  <p className="text-sm text-blue-800">Parent</p>
                   <p className="text-xs text-blue-600">username: reach19897</p>
                 </div>
               </div>
@@ -235,7 +235,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 }}
                 className="text-blue-600 border-blue-200 hover:bg-blue-50"
               >
-                Try
+                {/* Try
               </Button>
             </div>
             <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
@@ -254,7 +254,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   setPassword('6z0GSYPL');
                 }}
                 className="text-blue-600 border-blue-200 hover:bg-blue-50"
-              >
+              > */}
                 Try
               </Button>
             </div>
