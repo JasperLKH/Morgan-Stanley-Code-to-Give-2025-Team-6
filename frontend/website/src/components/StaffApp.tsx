@@ -5,11 +5,12 @@ import { HelpDialog } from './HelpDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { StaffDashboard } from './staff/StaffDashboard';
 import { PerformanceAnalytics } from './staff/PerformanceAnalytics';
-import { ParentAccountManagement } from './staff/ParentAccountManagement';
+import { UserAccountManagement } from './staff/UserAccountManagement';
 import { StaffAssignmentManagement } from './staff/StaffAssignmentManagement';
 import { StaffChat } from './staff/StaffChat';
 import { CommunityManagement } from './staff/CommunityManagement';
 import { RewardsManagement } from './staff/RewardsManagement';
+import SchoolManagement from './staff/SchoolManagement';
 
 interface User {
   id: string;
@@ -28,6 +29,7 @@ export function StaffApp({ user, onLogout }: StaffAppProps) {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'assignments', label: 'Assignments', icon: BookOpen },
+    { id: 'schools', label: 'Schools', icon: Users },
     { id: 'accounts', label: 'Accounts', icon: Users },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'rewards', label: 'Rewards', icon: Gift },
@@ -42,7 +44,9 @@ export function StaffApp({ user, onLogout }: StaffAppProps) {
       case 'assignments':
         return <StaffAssignmentManagement user={user} />;
       case 'accounts':
-        return <ParentAccountManagement user={user} />;
+        return <UserAccountManagement user={user} />;
+      case 'schools':
+        return <SchoolManagement user={user} />;
       case 'analytics':
         return <PerformanceAnalytics user={user} />;
       case 'rewards':
