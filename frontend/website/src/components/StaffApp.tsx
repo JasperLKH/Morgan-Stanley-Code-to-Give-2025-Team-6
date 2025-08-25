@@ -45,6 +45,7 @@ function StaffAppContent({ user, onLogout }: StaffAppProps) {
     { id: 'rewards', label: 'Rewards', icon: Gift },
     { id: 'chat', label: 'Chat', icon: MessageCircle },
     { id: 'community', label: 'Community', icon: Edit },
+    { id: 'questionnaires', label: 'Questionnaires', icon: Edit },
   ];
 
   const renderContent = () => {
@@ -63,6 +64,8 @@ function StaffAppContent({ user, onLogout }: StaffAppProps) {
         return <StaffChat />;
       case 'community':
         return <CommunityManagement user={user} />;
+      case 'questionnaires':
+        return <QuestionnaireManager user={user} />;
       default:
         return <StaffDashboard user={user} />;
     }
