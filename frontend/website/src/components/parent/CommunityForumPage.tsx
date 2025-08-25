@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CommunityLeaderboardFull } from './CommunityLeaderboardFull';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -13,7 +14,9 @@ import {
   Filter,
   Loader2,
   Clock,
-  User
+  User,
+  Trophy,
+  Crown
 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { useParentContext } from "../contexts/ParentContext";
@@ -46,7 +49,7 @@ interface Comment {
 }
 
 export function CommunityForumPage() {
-  const { state } = useParentContext();
+  const { state, t } = useParentContext();
   const currentUser = state.user;
   
   // Log user ID for debugging
@@ -62,6 +65,55 @@ export function CommunityForumPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showNewPostDialog, setShowNewPostDialog] = useState(false);
   const [expandedPost, setExpandedPost] = useState<number | null>(null);
+  const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
+
+  // Weekly leaderboard data (mock)
+  const weeklyLeaderboard = [
+    {
+      id: 1,
+      parentName: 'Sarah Chen',
+      childName: 'Emma',
+      points: 285,
+      avatar: 'SC',
+      rank: 1,
+      weeklyPoints: 125,
+      streak: 7
+    },
+    {
+      id: 2,
+      parentName: 'Lisa Wong',
+      childName: 'Alex',
+      points: 267,
+      avatar: 'LW',
+      rank: 2,
+      weeklyPoints: 118,
+      streak: 5
+    },
+    {
+      id: 3,
+      parentName: 'David Liu',
+      childName: 'Marcus',
+      points: 251,
+      avatar: 'DL',
+      rank: 3,
+      weeklyPoints: 112,
+      streak: 6
+    }
+  ];
+
+  // Helper for leaderboard icons
+  const getRankIcon = (rank) => {
+    switch (rank) {
+      case 1:
+        return <span role="img" aria-label="crown">👑</span>;
+      case 2:
+        return <span role="img" aria-label="medal">🥈</span>;
+      case 3:
+        return <span role="img" aria-label="award">🥉</span>;
+      default:
+        return <span className="text-gray-500">#{rank}</span>;
+    }
+  };
 
   useEffect(() => {
     fetchPosts();
@@ -222,6 +274,10 @@ export function CommunityForumPage() {
     );
   }
 
+  if (showFullLeaderboard) {
+    return <CommunityLeaderboardFull />;
+  }
+
   return (
     <div className="p-4 space-y-6">
       {/* Header */}
@@ -230,7 +286,6 @@ export function CommunityForumPage() {
           <h2 className="text-xl text-gray-900">Community Forum</h2>
           <p className="text-sm text-gray-600">Connect with other parents and share experiences</p>
         </div>
-        
         <Dialog open={showNewPostDialog} onOpenChange={setShowNewPostDialog}>
           <DialogTrigger asChild>
             <Button>
@@ -261,7 +316,6 @@ export function CommunityForumPage() {
                   <option value="questions">Questions</option>
                 </select>
               </div>
-              
               <div>
                 <label className="text-sm font-medium text-gray-700">Title</label>
                 <Input
@@ -271,7 +325,6 @@ export function CommunityForumPage() {
                   className="mt-1"
                 />
               </div>
-              
               <div>
                 <label className="text-sm font-medium text-gray-700">Content</label>
                 <Textarea
@@ -281,7 +334,6 @@ export function CommunityForumPage() {
                   className="mt-1 min-h-[100px]"
                 />
               </div>
-              
               <div className="flex space-x-2">
                 <Button
                   variant="outline"
@@ -303,6 +355,44 @@ export function CommunityForumPage() {
         </Dialog>
       </div>
 
+      {/* Leaderboard Section */}
+      <Card className="border-0 shadow-lg bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center space-x-2">
+            <Trophy className="w-5 h-5 text-purple-600" />
+            <span>Weekly Champions</span>
+            <Badge className="bg-purple-100 text-purple-800 ml-2">🏆 Top 3</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {weeklyLeaderboard.map((entry) => (
+            <div key={entry.id} className="flex items-center space-x-3 p-3 rounded-lg border bg-gradient-to-r from-white to-purple-50">
+              <div className="flex items-center justify-center w-8 h-8">
+                {getRankIcon(entry.rank)}
+              </div>
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center font-bold text-blue-700">
+                {entry.avatar}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium text-gray-900">{entry.parentName}</span>
+                  {entry.rank === 1 && <Crown className="w-4 h-4 text-yellow-500" />}
+                </div>
+                <p className="text-sm text-gray-600">{entry.childName}'s parent</p>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-medium text-gray-900">+{entry.weeklyPoints}</div>
+                <div className="text-xs text-gray-600">this week</div>
+              </div>
+            </div>
+          ))}
+          <Button variant="outline" className="w-full mt-3" size="sm" onClick={() => setShowFullLeaderboard(true)}>
+            <Trophy className="w-4 h-4 mr-2" />
+            View Full Leaderboard
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
@@ -316,7 +406,6 @@ export function CommunityForumPage() {
             />
           </div>
         </div>
-        
         <div className="flex items-center space-x-2">
           <Filter className="w-4 h-4 text-gray-400" />
           <select
@@ -376,12 +465,10 @@ export function CommunityForumPage() {
                     </div>
                   </div>
                 </div>
-                
                 <div className="mb-3">
                   <h3 className="text-lg font-medium text-gray-900 mb-2">{post.title}</h3>
                   <p className="text-gray-600 text-sm line-clamp-3">{post.content}</p>
                 </div>
-                
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <Button
@@ -393,7 +480,6 @@ export function CommunityForumPage() {
                       <Heart className={`w-4 h-4 ${post.liked_by_user ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
                       <span className="text-sm">{post.likes_count || 0}</span>
                     </Button>
-                    
                     <Button
                       variant="ghost"
                       size="sm"
@@ -404,7 +490,6 @@ export function CommunityForumPage() {
                       <span className="text-sm">{post.comments_count || 0}</span>
                     </Button>
                   </div>
-                  
                   <Button
                     variant="ghost"
                     size="sm"
@@ -413,14 +498,12 @@ export function CommunityForumPage() {
                     {expandedPost === post.id ? 'Show Less' : 'Read More'}
                   </Button>
                 </div>
-                
                 {/* Expanded Comments Section */}
                 {expandedPost === post.id && (
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <div className="mb-4">
                       <p className="text-gray-700">{post.content}</p>
                     </div>
-                    
                     {comments[post.id] && comments[post.id].length > 0 && (
                       <div className="space-y-3">
                         <h4 className="text-sm font-medium text-gray-900">Comments</h4>
